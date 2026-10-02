@@ -20,6 +20,7 @@ export function StatTile({
   deltaLabel,
   goodDirection = "down",
   spark,
+  sparkTone,
   tone,
   to,
   params,
@@ -31,6 +32,7 @@ export function StatTile({
   deltaLabel?: string;
   goodDirection?: "up" | "down";
   spark?: number[];
+  sparkTone?: string;
   tone?: "critical" | "warning" | "good";
   to?: PageId;
   params?: Record<string, string>;
@@ -65,7 +67,7 @@ export function StatTile({
         <span className="text-[2rem] leading-none font-semibold" style={{ color: toneColor }}>
           {value}
         </span>
-        {spark && spark.length > 1 && <Sparkline points={spark} />}
+        {spark && spark.length > 1 && <Sparkline points={spark} tone={sparkTone} />}
       </div>
 
       {delta !== undefined && (
@@ -103,7 +105,7 @@ export function StatTile({
   );
 }
 
-function Sparkline({ points }: { points: number[] }) {
+function Sparkline({ points, tone = "var(--chart-1)" }: { points: number[]; tone?: string }) {
   const w = 72;
   const h = 28;
   const max = Math.max(...points, 1);
@@ -119,7 +121,7 @@ function Sparkline({ points }: { points: number[] }) {
 
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden className="shrink-0 overflow-visible">
-      <path d={d} fill="none" stroke="var(--chart-1)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={d} fill="none" stroke={tone} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -149,7 +151,20 @@ const GRADE_COLOR: Record<string, string> = {
   healthy: "var(--status-good)",
   watch: "var(--chart-4)",
   degraded: "var(--sev-warning)",
-  critical: "var(--sev-error)"
+  critical: "var(--sev-error)",
+  // No traffic is its own state, deliberately neutral so it never reads as a
+  // pass or a failure.
+  nodata: "var(--muted-foreground)",
+  sparse: "var(--muted-foreground)"
+};
+
+const GRADE_LABEL: Record<string, string> = {
+  healthy: "healthy",
+  watch: "watch",
+  degraded: "degraded",
+  critical: "critical",
+  nodata: "no data",
+  sparse: "too few requests"
 };
 
 export function GradeBadge({ grade }: { grade: string }) {
@@ -159,7 +174,7 @@ export function GradeBadge({ grade }: { grade: string }) {
       style={{ color: GRADE_COLOR[grade], background: `color-mix(in oklab, ${GRADE_COLOR[grade]} 12%, transparent)` }}
     >
       <span aria-hidden className="size-1.5 rounded-full" style={{ background: GRADE_COLOR[grade] }} />
-      {grade}
+      {GRADE_LABEL[grade] ?? grade}
     </span>
   );
 }
@@ -173,7 +188,7 @@ export function StatusPill({ code }: { code: number }) {
   );
 }
 
-export { GRADE_COLOR };
+export { GRADE_COLOR, GRADE_LABEL };
 
 /* ------------------------------------------------------------- scaffolding */
 
@@ -213,7 +228,7 @@ export function SectionHead({
 
 export function Panel({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <Card className={cn("bg-card border-border/60 gap-0 py-5", className)}>
+    <Card data-panel className={cn("bg-card border-border/70 gap-0 py-5", className)}>
       <CardContent className="px-5">{children}</CardContent>
     </Card>
   );

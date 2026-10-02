@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FreshnessNote, Metric, Panel, SectionHead, StatTile } from "@/components/primitives";
 import { PageSkeleton } from "./Overview";
 import { useApi } from "@/lib/api";
+import type { AlertsResponse } from "@/lib/contracts";
 import { buildHash } from "@/lib/nav";
 import { ALERT_COLOR, fmtMs, fmtNum, fmtPct, relative } from "@/lib/viz";
 
@@ -10,8 +11,8 @@ import { ALERT_COLOR, fmtMs, fmtNum, fmtPct, relative } from "@/lib/viz";
  * "related signals for the same time period". Expanding an alert answers three
  * questions: what else was happening, why it probably happened, and what to do.
  */
-export function Alerts({ hours, scope }: { hours: number; scope: string }) {
-  const { data, loading } = useApi<any>(`/api/alerts?hours=${hours}&scope=${scope}`, [hours, scope]);
+export function Alerts({ window: win, scope, refreshMs }: { window: string; scope: string; refreshMs: number }) {
+  const { data, loading } = useApi<AlertsResponse>(`/api/alerts?${win}&scope=${scope}`, [win, scope], refreshMs);
   const [open, setOpen] = useState<string | null>(null);
   if (loading || !data) return <PageSkeleton />;
 

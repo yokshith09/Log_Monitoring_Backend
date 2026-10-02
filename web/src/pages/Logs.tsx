@@ -4,13 +4,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FreshnessNote, Legend, Panel, SectionHead, SeverityBadge, StatusPill } from "@/components/primitives";
 import { SeverityStack } from "@/components/charts";
 import { PageSkeleton } from "./Overview";
-import { useApi, type LogEntry } from "@/lib/api";
+import { useApi } from "@/lib/api";
+import type { LogEntry, LogsResponse } from "@/lib/contracts";
 import { buildHash } from "@/lib/nav";
 import { SEVERITY_COLOR, fmtMs, fmtNum } from "@/lib/viz";
 
 const ALL = "ALL";
 
-export function Logs({ hours, params }: { hours: number; params: Record<string, string> }) {
+export function Logs({ window: win, params, refreshMs }: { window: string; params: Record<string, string>; refreshMs: number }) {
   // Filters initialise from the URL, so a drill-down from Overview or Services
   // lands here already narrowed — §12 step 3.
   const [severity, setSeverity] = useState(params.severity ?? ALL);
@@ -31,8 +32,8 @@ export function Logs({ hours, params }: { hours: number; params: Record<string, 
     setQ(params.q ?? "");
   }, [params.severity, params.service, params.event, params.route, params.statusClass, params.q]);
 
-  const query = new URLSearchParams({ hours: String(hours), severity, service, event, route, statusClass, q });
-  const { data, loading } = useApi<any>(`/api/logs?${query}`, [hours, severity, service, event, route, statusClass, q]);
+  const query = new URLSearchParams({ severity, service, event, route, statusClass, q });
+  const { data, loading } = useApi<LogsResponse>(`/api/logs?${win}&${query}`, [win, severity, service, event, route, statusClass, q], refreshMs);
 
   if (loading && !data) return <PageSkeleton />;
   if (!data) return null;

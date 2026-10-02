@@ -1,36 +1,30 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Overview } from "@/pages/Overview";
 import { Services } from "@/pages/Services";
 import { Logs } from "@/pages/Logs";
 import { Alerts } from "@/pages/Alerts";
-import { Recommendations } from "@/pages/Recommendations";
 import { Connections } from "@/pages/Connections";
-import { Cost, Performance, Resources } from "@/pages/Rest";
+import { Performance, Resources } from "@/pages/Rest";
 import { ScopePicker } from "@/components/scope";
-import { NAV, NAV_GROUPS, RANGES, buildHash, useRoute } from "@/lib/nav";
+import { DEFAULT_WINDOW, NAV, NAV_GROUPS, WINDOWS, buildHash, useRoute } from "@/lib/nav";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 export default function App() {
   const { page, params } = useRoute();
   const { theme, toggle } = useTheme();
-  const [hours, setHours] = useState(6);
-  const [live, setLive] = useState(false);
-  const [tick, setTick] = useState(0);
+  const [windowId, setWindowId] = useState(DEFAULT_WINDOW.id);
+  const [live, setLive] = useState(true);
+  const activeWindow = WINDOWS.find((w) => w.id === windowId) ?? DEFAULT_WINDOW;
+  // Polling cadence follows the window: a 1-minute view refreshes every 5s,
+  // a 24-hour view every 2 minutes. 0 disables it.
+  const refreshMs = live ? activeWindow.refreshMs : 0;
 
   // Scope lives in the URL so a drill-down keeps the account it came from.
   const scope = params.scope ?? "all";
   const setScope = (next: string) => {
     location.hash = buildHash(page, { ...params, scope: next });
   };
-
-  // §10.1 asks for near-real-time operational views. Polling stands in for a
-  // stream; the interval is deliberately visible rather than hidden.
-  useEffect(() => {
-    if (!live) return;
-    const id = setInterval(() => setTick((t) => t + 1), 15_000);
-    return () => clearInterval(id);
-  }, [live]);
 
   const current = NAV.find((n) => n.id === page) ?? NAV[0];
 
@@ -66,20 +60,20 @@ export default function App() {
             <ScopePicker scope={scope} onScope={setScope} />
 
             <div className="border-border/70 flex items-center gap-0.5 rounded-md border p-0.5">
-              {RANGES.map((range) => (
+              {WINDOWS.map((w) => (
                 <button
-                  key={range.hours}
-                  onClick={() => setHours(range.hours)}
-                  aria-pressed={hours === range.hours}
-                  title={`Show the last ${range.label}`}
+                  key={w.id}
+                  onClick={() => setWindowId(w.id)}
+                  aria-pressed={windowId === w.id}
+                  title={w.title}
                   className={cn(
-                    "rounded px-2.5 py-1 text-xs transition-colors",
-                    hours === range.hours
+                    "rounded px-2 py-1 text-xs transition-colors",
+                    windowId === w.id
                       ? "bg-secondary text-foreground font-medium"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {range.label}
+                  {w.label}
                 </button>
               ))}
             </div>
@@ -87,7 +81,7 @@ export default function App() {
             <button
               onClick={() => setLive((v) => !v)}
               aria-pressed={live}
-              title="Refresh every 15 seconds"
+              title={live ? `Refreshing every ${activeWindow.refreshMs / 1000}s` : "Auto-refresh paused"}
               className={cn(
                 "border-border/70 flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors",
                 live ? "text-foreground bg-secondary" : "text-muted-foreground hover:text-foreground"
@@ -98,7 +92,7 @@ export default function App() {
                 className={cn("size-1.5 rounded-full", live && "animate-pulse")}
                 style={{ background: live ? "var(--status-good)" : "var(--muted-foreground)" }}
               />
-              {live ? "Live" : "Paused"}
+              {live ? `Live · ${activeWindow.refreshMs / 1000}s` : "Paused"}
             </button>
 
             <button
@@ -136,9 +130,12 @@ export default function App() {
           <div className="mx-auto flex max-w-[1500px] items-stretch gap-5 overflow-x-auto px-6">
             {NAV_GROUPS.map((group) => (
               <div key={group.group} className="flex items-center gap-0.5">
-                <span className="text-muted-foreground/70 mr-1 shrink-0 text-[0.6rem] font-semibold tracking-[0.1em] uppercase">
-                  {group.group}
-                </span>
+                {/* A one-item group would just repeat its own item's label. */}
+                {group.items.length > 1 && (
+                  <span className="text-muted-foreground/70 mr-1 shrink-0 text-[0.6rem] font-semibold tracking-[0.1em] uppercase">
+                    {group.group}
+                  </span>
+                )}
                 {group.items.map((item) => (
                   <a
                     key={item.id}
@@ -174,17 +171,15 @@ export default function App() {
           <p className="text-muted-foreground mt-1 text-sm">{current.hint}</p>
         </div>
 
-        <div key={tick}>
-          {page === "overview" && <Overview hours={hours} scope={scope} />}
-          {page === "services" && <Services hours={hours} scope={scope} />}
-          {page === "logs" && <Logs hours={hours} params={params} />}
-          {page === "performance" && <Performance hours={hours} scope={scope} />}
-          {page === "resources" && <Resources hours={hours} scope={scope} />}
-          {page === "cost" && <Cost scope={scope} />}
-          {page === "recommendations" && <Recommendations scope={scope} />}
-          {page === "alerts" && <Alerts hours={hours} scope={scope} />}
-          {page === "connections" && <Connections />}
-        </div>
+        {/* No remount on refresh: the hook swaps data in place, so charts keep
+            their state instead of being torn down every poll. */}
+        {page === "overview" && <Overview window={activeWindow.query} scope={scope} refreshMs={refreshMs} />}
+        {page === "services" && <Services window={activeWindow.query} scope={scope} refreshMs={refreshMs} />}
+        {page === "logs" && <Logs window={activeWindow.query} params={params} refreshMs={refreshMs} />}
+        {page === "performance" && <Performance window={activeWindow.query} scope={scope} refreshMs={refreshMs} />}
+        {page === "resources" && <Resources window={activeWindow.query} scope={scope} refreshMs={refreshMs} />}
+        {page === "alerts" && <Alerts window={activeWindow.query} scope={scope} refreshMs={refreshMs} />}
+        {page === "connections" && <Connections />}
       </main>
     </div>
   );

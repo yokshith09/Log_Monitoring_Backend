@@ -1,10 +1,10 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
-import { logEntries, resourceSeries } from "./data.js";
-import { costRows } from "./cost-data.js";
+import { logEntries, resourceSeries, costRows, sourceInfo, memo } from "./source.js";
 import { listConnections, resolveScope, applyScope } from "./connections.js";
 import { providerList } from "./providers.js";
+import { buildActions, sectionSummary } from "./actions.js";
 import {
   overview,
   severityBreakdown,
@@ -45,20 +45,37 @@ const json = (res, body, status = 200) => {
 const scopeOf = (url) => resolveScope(url.searchParams.get("scope"));
 
 /** Log records narrowed to the active scope. */
-const scopedEntries = (url) => applyScope(logEntries(), url.searchParams.get("scope"));
+const scopedEntries = (url) => {
+  const scope = url.searchParams.get("scope") ?? "all";
+  return memo(`entries:${scope}`, () => applyScope(logEntries(), scope));
+};
 
 /** Cost rows narrowed to the active scope. */
-const scopedCost = (url) => applyScope(costRows(), url.searchParams.get("scope"));
+const scopedCost = (url) => {
+  const scope = url.searchParams.get("scope") ?? "all";
+  return memo(`cost:${scope}`, () => applyScope(costRows(), scope));
+};
 
 function range(url) {
+  // `minutes` wins when present: sub-hour windows expressed as fractional hours
+  // round badly across the bucket boundaries.
+  const minutesParam = url.searchParams.get("minutes");
   const hours = Number(url.searchParams.get("hours") ?? 6);
+  const spanRequested = minutesParam ? Number(minutesParam) * 60_000 : hours * 3600_000;
   const toMs = Number(url.searchParams.get("to") ?? Date.now());
-  const fromMs = Number(url.searchParams.get("from") ?? toMs - hours * 3600_000);
+  const fromMs = Number(url.searchParams.get("from") ?? toMs - spanRequested);
   const span = toMs - fromMs;
   // Keeps roughly 60–90 points on screen whatever the range.
+  // Target roughly 30-90 points on screen whatever the window.
   const bucketMs =
-    span <= 3600_000 ? 60_000 : span <= 6 * 3600_000 ? 5 * 60_000 : span <= 24 * 3600_000 ? 15 * 60_000 : 60 * 60_000;
-  return { fromMs, toMs, bucketMs, hours };
+    span <= 60_000 ? 2_000            // 1m  -> 2s buckets
+      : span <= 5 * 60_000 ? 10_000   // 5m  -> 10s
+      : span <= 15 * 60_000 ? 30_000  // 15m -> 30s
+      : span <= 3600_000 ? 60_000     // 1h  -> 1m
+      : span <= 6 * 3600_000 ? 5 * 60_000
+      : span <= 24 * 3600_000 ? 15 * 60_000
+      : 60 * 60_000;
+  return { fromMs, toMs, bucketMs, hours, spanMs: span };
 }
 
 /**
@@ -109,23 +126,45 @@ const routes = {
     const r = range(url);
     const entries = scopedEntries(url);
     const agg = overview(entries, r);
-    const alerts = evaluateAlerts(entries, r);
+    const resources = resourceSeries();
+    const rawAlerts = evaluateAlerts(entries, r);
+    const alerts = rawAlerts.map((a) => ({
+      ...a,
+      correlation: correlate(entries, resources, { fromMs: a.firstSeen, toMs: a.lastSeen })
+    }));
+    const serviceRows = serviceHealth(entries, r);
+    const healthRow = healthMetrics(entries, r);
+    const actions = buildActions({ alerts, services: serviceRows, health: healthRow });
 
     return {
       range: r,
       scope: scopeOf(url),
+      source: sourceInfo(),
       freshness: freshness(),
-      health: healthMetrics(entries, r),
+      health: healthRow,
       deltas: agg.deltas,
       sparkline: agg.sparkline,
       timeline: agg.timeline,
       severity: severityBreakdown(entries, r),
       status: statusBreakdown(entries, r),
       topEvents: topEvents(entries, { ...r, limit: 6 }),
-      services: serviceHealth(entries, r),
+      services: serviceRows,
       components: byComponent(entries, r),
       alerts: alerts.slice(0, 4),
       activeAlertCount: alerts.filter((a) => a.active).length,
+      // Action-first: what needs a person, ranked.
+      actions,
+      actionCounts: {
+        critical: actions.filter((a) => a.priority === "critical" && a.active).length,
+        high: actions.filter((a) => a.priority === "high" && a.active).length,
+        total: actions.filter((a) => a.active).length
+      },
+      // Each major section carries its own rollup, so a reader never has to
+      // scan a whole panel to learn whether it needs them.
+      summaries: {
+        reliability: sectionSummary(actions, ["alert", "system"]),
+        services: sectionSummary(actions, ["service"])
+      },
       performance: performance(entries, r).slowestRoutes.slice(0, 5),
       resourceLatest: resourceSeries().at(-1) ?? {},
       byConnection: listConnections().map((c) => {
@@ -266,6 +305,22 @@ const routes = {
     };
   },
 
+  "/api/actions": (url) => {
+    const r = range(url);
+    const entries = scopedEntries(url);
+    const resources = resourceSeries();
+    const alerts = evaluateAlerts(entries, r).map((a) => ({
+      ...a,
+      correlation: correlate(entries, resources, { fromMs: a.firstSeen, toMs: a.lastSeen })
+    }));
+    const actions = buildActions({
+      alerts,
+      services: serviceHealth(entries, r),
+      health: healthMetrics(entries, r)
+    });
+    return { range: r, actions, total: actions.filter((a) => a.active).length };
+  },
+
   "/api/connections": () => ({
     connections: listConnections(),
     providers: providerList().map((p) => ({
@@ -285,7 +340,7 @@ const routes = {
   }),
 
   "/api/meta": () => ({
-    source: process.env.VANTAGE_SOURCE ?? "sample",
+    source: sourceInfo(),
     generatedAt: new Date().toISOString(),
     freshness: freshness(),
     contract: [

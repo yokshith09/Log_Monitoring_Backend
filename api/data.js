@@ -54,6 +54,13 @@ const BASELINE = [
  */
 const INCIDENTS = [
   {
+    name: "Checkout 5xx surge (ongoing)",
+    startHoursAgo: 0.5,
+    ongoing: true,
+    burst: { event: "order_create_failed", component: "orders", route: "/api/orders", status: 500, severity: "ERROR", latency: [120, 700] },
+    perMinute: 1
+  },
+  {
     name: "Payment provider outage",
     startHoursAgo: 4.5,
     durationMinutes: 35,
@@ -120,6 +127,10 @@ const MESSAGES = {
 function makeEntry(spec, timestamp, connection = pickConnection(rand)) {
   return {
     timestamp: new Date(timestamp).toISOString(),
+    // Numeric copy so windowing never re-parses the ISO string. The
+    // alert engine slides thousands of windows; Date.parse there was
+    // ~30M calls per request.
+    t: timestamp,
     connectionId: connection.id,
     provider: connection.provider,
     severity: spec.severity,
@@ -143,29 +154,55 @@ function trafficMultiplier(hourOfDay) {
 }
 
 let cache = null;
+/** Minute boundary up to which baseline traffic has been generated. */
+let generatedThrough = 0;
 
-/** All log entries for the window, newest first. */
+const TOTAL_WEIGHT = BASELINE.reduce((sum, s) => sum + s.weight, 0);
+
+const ONGOING = INCIDENTS.filter((i) => i.ongoing);
+/** When each ongoing incident started, fixed at module load so it is stable. */
+const ONGOING_FROM = new Map(ONGOING.map((i) => [i, now() - i.startHoursAgo * 3600_000]));
+
+/** One minute of traffic at `at`: baseline, plus any ongoing incident's burst. */
+function baselineMinute(at) {
+  const volume = Math.max(1, Math.round(14 * trafficMultiplier(new Date(at).getHours())));
+  const out = [];
+  for (let i = 0; i < volume; i += 1) {
+    let pick = rand() * TOTAL_WEIGHT;
+    const spec = BASELINE.find((s) => (pick -= s.weight) <= 0) ?? BASELINE[0];
+    out.push(makeEntry(spec, at + Math.floor(rand() * 60_000)));
+  }
+
+  for (const incident of ONGOING) {
+    if (at < ONGOING_FROM.get(incident)) continue;
+    const count = Math.max(1, Math.round(incident.perMinute * (0.6 + rand() * 0.8)));
+    for (let i = 0; i < count; i += 1) out.push(makeEntry(incident.burst, at + Math.floor(rand() * 60_000)));
+  }
+  return out;
+}
+
+/**
+ * All log entries for the window, newest first.
+ *
+ * The 24h corpus is generated once, then extended a minute at a time as real
+ * time passes. Without that the newest record ages with the process and the
+ * short windows — 1m especially — go permanently empty a minute after start,
+ * which is exactly the view that is supposed to move.
+ */
 export function logEntries() {
-  if (cache) return cache;
+  if (cache) return extend();
 
   const end = now();
   const start = end - HOURS * 3600_000;
   const entries = [];
-  const totalWeight = BASELINE.reduce((sum, s) => sum + s.weight, 0);
 
   for (let minute = 0; minute < HOURS * 60; minute += 1) {
-    const at = start + minute * 60_000;
-    const hourOfDay = new Date(at).getHours();
-    const volume = Math.max(1, Math.round(14 * trafficMultiplier(hourOfDay)));
-
-    for (let i = 0; i < volume; i += 1) {
-      let pick = rand() * totalWeight;
-      const spec = BASELINE.find((s) => (pick -= s.weight) <= 0) ?? BASELINE[0];
-      entries.push(makeEntry(spec, at + Math.floor(rand() * 60_000)));
-    }
+    entries.push(...baselineMinute(start + minute * 60_000));
   }
+  generatedThrough = start + HOURS * 60 * 60_000;
 
   for (const incident of INCIDENTS) {
+    if (incident.ongoing) continue;
     const from = end - incident.startHoursAgo * 3600_000;
     for (let minute = 0; minute < incident.durationMinutes; minute += 1) {
       const count = Math.max(1, Math.round(incident.perMinute * (0.6 + rand() * 0.8)));
@@ -176,6 +213,30 @@ export function logEntries() {
   }
 
   cache = entries.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
+  return cache;
+}
+
+/**
+ * Appends whole minutes elapsed since the last call, and drops anything that
+ * has fallen out of the 24h window.
+ *
+ * Returns a NEW array whenever something changed: analytics memoises its sorted
+ * copy in a WeakMap keyed on this array, so mutating it in place would serve a
+ * stale sort.
+ */
+function extend() {
+  const end = now();
+  if (end - generatedThrough < 60_000) return cache;
+
+  const fresh = [];
+  while (generatedThrough + 60_000 <= end) {
+    fresh.push(...baselineMinute(generatedThrough));
+    generatedThrough += 60_000;
+  }
+
+  const cutoff = end - HOURS * 3600_000;
+  fresh.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
+  cache = [...fresh, ...cache].filter((e) => (e.t ?? Date.parse(e.timestamp)) >= cutoff);
   return cache;
 }
 

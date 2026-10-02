@@ -1,164 +1,160 @@
 import { Explain, Figure, Section } from "@/components/layout";
 import { Panel } from "@/components/primitives";
-import { ProviderMark, type Connection, type Provider } from "@/components/scope";
 import { PageSkeleton } from "./Overview";
 import { useApi } from "@/lib/api";
+import type { Connection } from "@/lib/contracts";
+
+interface Provider {
+  id: string;
+  name: string;
+  shortName: string;
+  accountLabel: string;
+  status: string;
+  capabilities: Record<string, boolean>;
+  services: Record<string, string>;
+  requiredRoles: string[];
+  queryLanguage: string;
+  exampleQuery: string;
+}
 
 /**
- * Connected accounts, and the catalogue of providers that can be added.
+ * Setup — what this dashboard is reading from.
  *
- * This page is the multi-cloud story made visible: one platform, several
- * providers, several accounts per provider, and a documented path for the next
- * provider.
+ * One connected Google Cloud project. The page answers three questions in
+ * order: which project, which of its services we read, and what access that
+ * needs. Nothing here is configurable yet; it is a statement of the current
+ * wiring rather than a form.
  */
 export function Connections() {
-  const { data, loading } = useApi<{ connections: Connection[]; providers: Provider[] }>("/api/connections", []);
+  const { data, loading } = useApi<{ connections: Connection[]; providers: Provider[] }>(
+    "/api/connections",
+    []
+  );
   if (loading || !data) return <PageSkeleton />;
 
-  const { connections, providers } = data;
-  const byProvider = providers
-    .map((p) => ({ provider: p, items: connections.filter((c) => c.provider === p.id) }))
-    .filter((g) => g.items.length > 0);
+  const connection = data.connections[0];
+  const provider = data.providers.find((p) => p.id === connection?.provider);
+  if (!connection || !provider) return <PageSkeleton />;
+
+  const CAPABILITY_COPY: Record<string, string> = {
+    logs: "Every request and background job this project writes, as structured entries.",
+    metrics: "Infrastructure counters — CPU, memory, instance count, database connections.",
+    cost: "Daily spend per service, used by the cost views when enabled.",
+    recommendations: "The provider's own optimisation suggestions."
+  };
 
   return (
     <div className="space-y-10">
       <Section
-        eyebrow="Connected"
-        title="Your cloud accounts"
-        description="Each connection is one account on one provider. Telemetry from every connection is normalized into a single format, so a view can span all of them or narrow to one."
+        eyebrow="Project"
+        title={connection.name}
+        description="The Google Cloud project this dashboard reads from. All telemetry on every other page comes from here."
       >
-        <div className="space-y-6">
-          {byProvider.map(({ provider, items }) => (
-            <div key={provider.id}>
-              <div className="mb-2.5 flex items-center gap-2">
-                <ProviderMark provider={provider.id} />
-                <h3 className="text-sm font-semibold">{provider.name}</h3>
-                <span className="text-muted-foreground text-xs">
-                  {items.length} {items.length === 1 ? provider.accountLabel.toLowerCase() : `${provider.accountLabel.toLowerCase()}s`}
-                </span>
-              </div>
+        <Panel>
+          <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+            <Figure label="Project ID" value={connection.account} help="The GCP project identifier" />
+            <Figure label="Region" value={connection.region} help="Where the workloads run" />
+            <Figure label="Environment" value={connection.environment} help="How this project is treated" />
+            <Figure
+              label="Status"
+              value="Connected"
+              help={`Since ${new Date(connection.connectedAt).toLocaleDateString()}`}
+              tone="var(--status-good)"
+            />
+          </div>
+        </Panel>
+      </Section>
 
-              <div className="grid gap-3 lg:grid-cols-2">
-                {items.map((connection) => (
-                  <Panel key={connection.id}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold">{connection.name}</p>
-                        <p className="text-muted-foreground mt-0.5 font-mono text-xs">
-                          {connection.accountLabel}: {connection.account}
-                        </p>
-                      </div>
-                      <span
-                        className="flex shrink-0 items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-[0.65rem] font-medium tracking-wide uppercase"
-                        style={{
-                          color: "var(--status-good)",
-                          background: "color-mix(in oklab, var(--status-good) 12%, transparent)"
-                        }}
-                      >
-                        <span aria-hidden className="size-1.5 rounded-full" style={{ background: "var(--status-good)" }} />
-                        {connection.status}
-                      </span>
-                    </div>
-
-                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3">
-                      <div>
-                        <dt className="text-muted-foreground">Region</dt>
-                        <dd className="mt-0.5 font-mono">{connection.region}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">Environment</dt>
-                        <dd className="mt-0.5 font-mono">{connection.environment}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">Connected</dt>
-                        <dd className="mt-0.5">{new Date(connection.connectedAt).toLocaleDateString()}</dd>
-                      </div>
-                    </dl>
-
-                    <div className="border-border/60 mt-3 border-t pt-3">
-                      <p className="text-muted-foreground mb-1.5 text-xs">Monitored services</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {connection.services.map((service) => (
-                          <span
-                            key={service}
-                            className="border-border/60 bg-secondary/50 rounded px-1.5 py-0.5 text-[0.68rem]"
-                          >
-                            {service}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </Panel>
-                ))}
-              </div>
-            </div>
+      <Section
+        eyebrow="Monitored services"
+        title="What is being watched"
+        description="The Google Cloud services inside this project that produce the signals on this dashboard."
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {connection.services.map((service) => (
+            <Panel key={service}>
+              <p className="text-sm font-medium">{service}</p>
+              <p className="text-muted-foreground mt-1 text-xs">
+                {service === "Cloud Run"
+                  ? "Runs the application containers. Source of request logs, CPU, memory and instance counts."
+                  : service === "Cloud SQL"
+                    ? "The managed PostgreSQL database. Source of connection counts and query latency."
+                    : service === "Pub/Sub"
+                      ? "The message queue carrying order confirmation events to the worker."
+                      : service === "Cloud Logging"
+                        ? "Collects every structured log line the application writes to stdout."
+                        : "Collects infrastructure metrics for the workloads above."}
+              </p>
+            </Panel>
           ))}
         </div>
       </Section>
 
       <Section
-        eyebrow="Catalogue"
-        title="Supported providers"
-        description="What each provider contributes, and what connecting one requires. Adding a provider is a registry entry describing its severity vocabulary and field names — the rest of the platform is unchanged."
+        eyebrow="Data sources"
+        title="Where each signal comes from"
+        description="Which Google Cloud API backs each part of the dashboard."
       >
-        <div className="grid gap-3 lg:grid-cols-3">
-          {providers.map((provider) => {
-            const planned = provider.status !== "available";
-            return (
-              <Panel key={provider.id} className={planned ? "opacity-70" : undefined}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <ProviderMark provider={provider.id} />
-                    <p className="text-sm font-semibold">{provider.name}</p>
-                  </div>
-                  <span
-                    className="border-border/70 text-muted-foreground shrink-0 rounded border px-1.5 py-0.5 text-[0.62rem] tracking-wide uppercase"
-                  >
-                    {planned ? "Planned" : "Available"}
-                  </span>
-                </div>
+        <Panel>
+          <dl className="divide-border/60 divide-y">
+            {Object.entries(provider.services).map(([capability, service]) => (
+              <div key={capability} className="flex flex-wrap items-start gap-x-6 gap-y-1 py-3 first:pt-0 last:pb-0">
+                <dt className="w-32 shrink-0">
+                  <span className="text-sm font-medium capitalize">{capability}</span>
+                </dt>
+                <dd className="min-w-0 flex-1">
+                  <p className="font-mono text-sm">{service}</p>
+                  <p className="text-muted-foreground mt-0.5 text-xs">{CAPABILITY_COPY[capability]}</p>
+                </dd>
+                <dd
+                  className="shrink-0 rounded px-1.5 py-0.5 text-[0.65rem] font-medium tracking-wide uppercase"
+                  style={{
+                    color: provider.capabilities[capability] ? "var(--status-good)" : "var(--muted-foreground)",
+                    background: provider.capabilities[capability]
+                      ? "color-mix(in oklab, var(--status-good) 12%, transparent)"
+                      : "transparent"
+                  }}
+                >
+                  {provider.capabilities[capability] ? "Available" : "Not used"}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </Panel>
+      </Section>
 
-                <dl className="mt-3 space-y-1.5 text-xs">
-                  {Object.entries(provider.services).map(([capability, service]) => (
-                    <div key={capability} className="flex gap-2">
-                      <dt className="text-muted-foreground w-28 shrink-0 capitalize">{capability}</dt>
-                      <dd className="min-w-0">{service}</dd>
-                    </div>
-                  ))}
-                </dl>
+      <Section
+        eyebrow="Access"
+        title="What permission this needs"
+        description="Read-only throughout. The dashboard never writes to your project and never changes a resource."
+      >
+        <Panel>
+          <ul className="space-y-2">
+            {provider.requiredRoles.map((role) => (
+              <li key={role} className="flex items-center gap-3">
+                <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: "var(--status-good)" }} />
+                <code className="font-mono text-sm">{role}</code>
+              </li>
+            ))}
+          </ul>
 
-                <div className="border-border/60 mt-3 border-t pt-3">
-                  <p className="text-muted-foreground mb-1 text-xs">Query language</p>
-                  <p className="font-mono text-xs">{provider.queryLanguage}</p>
-                  <pre className="bg-secondary/50 border-border/60 mt-2 overflow-x-auto rounded border p-2 font-mono text-[0.65rem] leading-relaxed">
-                    {provider.exampleQuery}
-                  </pre>
-                </div>
+          <div className="border-border/60 mt-4 border-t pt-4">
+            <p className="text-muted-foreground mb-1.5 text-xs font-medium">
+              How logs are queried ({provider.queryLanguage})
+            </p>
+            <pre className="bg-secondary/50 border-border/60 overflow-x-auto rounded border p-3 font-mono text-xs leading-relaxed">
+              {provider.exampleQuery}
+            </pre>
+          </div>
 
-                <div className="border-border/60 mt-3 border-t pt-3">
-                  <p className="text-muted-foreground mb-1.5 text-xs">Required access</p>
-                  <ul className="space-y-0.5">
-                    {provider.requiredRoles.map((role) => (
-                      <li key={role} className="text-muted-foreground font-mono text-[0.65rem]">
-                        {role}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </Panel>
-            );
-          })}
-        </div>
-
-        <div className="mt-4">
-          <Explain>
-            Credentials are referenced from a secret manager, never stored in the platform and never sent to the
-            browser. Each connection needs read-only access to its provider&rsquo;s logging, metrics and billing APIs.
-          </Explain>
-        </div>
+          <div className="mt-4">
+            <Explain>
+              Credentials are held in a secret manager and referenced by name. They are never stored in this
+              platform, never written to a log, and never sent to the browser.
+            </Explain>
+          </div>
+        </Panel>
       </Section>
     </div>
   );
 }
-
-export { Figure };

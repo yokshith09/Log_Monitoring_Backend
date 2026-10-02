@@ -22,38 +22,9 @@ export const CONNECTIONS = [
     environment: "production",
     status: "connected",
     credentialRef: "secret://vantage/gcp-prod",
-    // Share of total telemetry this connection contributes in the sample source.
-    weight: 0.62,
-    services: ["Cloud Run", "Cloud SQL", "Pub/Sub", "Cloud Logging"],
+    weight: 1,
+    services: ["Cloud Run", "Cloud SQL", "Pub/Sub", "Cloud Logging", "Cloud Monitoring"],
     connectedAt: "2026-09-12T08:00:00.000Z"
-  },
-  {
-    id: "gcp-staging",
-    provider: "gcp",
-    name: "StaySync Staging",
-    account: "staysync-staging",
-    accountLabel: "Project",
-    region: "asia-south1",
-    environment: "staging",
-    status: "connected",
-    credentialRef: "secret://vantage/gcp-staging",
-    weight: 0.14,
-    services: ["Cloud Run", "Cloud SQL"],
-    connectedAt: "2026-09-12T08:10:00.000Z"
-  },
-  {
-    id: "azure-prod",
-    provider: "azure",
-    name: "Checkout Services (EU)",
-    account: "sub-7f2a-checkout",
-    accountLabel: "Subscription",
-    region: "westeurope",
-    environment: "production",
-    status: "connected",
-    credentialRef: "secret://vantage/azure-prod",
-    weight: 0.24,
-    services: ["App Service", "Azure SQL", "Service Bus"],
-    connectedAt: "2026-09-20T11:30:00.000Z"
   }
 ];
 

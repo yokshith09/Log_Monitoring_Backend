@@ -1,13 +1,14 @@
 import { Legend, Metric, Panel, SectionHead, StatTile } from "@/components/primitives";
-import { CostBars, RankedBars, TrendArea, TrendLine } from "@/components/charts";
+import { RankedBars, TrendArea, TrendLine } from "@/components/charts";
 import { PageSkeleton } from "./Overview";
 import { useApi } from "@/lib/api";
-import { SERIES, fmtMs, fmtUsd } from "@/lib/viz";
+import type { PerformanceResponse, ResourcesResponse } from "@/lib/contracts";
+import { SERIES, fmtMs } from "@/lib/viz";
 
 /* ------------------------------------------------------------ performance */
 
-export function Performance({ hours, scope }: { hours: number; scope: string }) {
-  const { data, loading } = useApi<any>(`/api/performance?hours=${hours}&scope=${scope}`, [hours, scope]);
+export function Performance({ window: win, scope, refreshMs }: { window: string; scope: string; refreshMs: number }) {
+  const { data, loading } = useApi<PerformanceResponse>(`/api/performance?${win}&scope=${scope}`, [win, scope], refreshMs);
   if (loading || !data) return <PageSkeleton />;
 
   // The final bucket is partial at "now" and often empty, which rendered 0ms.
@@ -87,8 +88,8 @@ export function Performance({ hours, scope }: { hours: number; scope: string }) 
 
 /* -------------------------------------------------------------- resources */
 
-export function Resources({ hours, scope }: { hours: number; scope: string }) {
-  const { data, loading } = useApi<any>(`/api/resources?hours=${hours}&scope=${scope}`, [hours, scope]);
+export function Resources({ window: win, scope, refreshMs }: { window: string; scope: string; refreshMs: number }) {
+  const { data, loading } = useApi<ResourcesResponse>(`/api/resources?${win}&scope=${scope}`, [win, scope], refreshMs);
   if (loading || !data) return <PageSkeleton />;
 
   const { latest, peaks, series } = data;
@@ -130,108 +131,6 @@ export function Resources({ hours, scope }: { hours: number; scope: string }) {
           </Panel>
         ))}
       </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------- cost */
-
-export function Cost({ scope }: { scope: string }) {
-  const { data, loading } = useApi<any>(`/api/cost?scope=${scope}`, [scope]);
-  if (loading || !data) return <PageSkeleton />;
-
-  const { cost, recommendations, provenance } = data;
-  const anomalyDates = new Set<string>(cost.anomalies.map((a: any) => a.date));
-
-  return (
-    <div className="space-y-5">
-      {/* Provenance is stated up front — never let sample figures read as real spend. */}
-      <div
-        className="flex items-start gap-3 rounded-md border px-4 py-3 text-xs"
-        style={{ borderColor: "color-mix(in oklab, var(--sev-warning) 35%, transparent)", background: "color-mix(in oklab, var(--sev-warning) 8%, transparent)" }}
-      >
-        <span aria-hidden style={{ color: "var(--sev-warning)" }}>⚠</span>
-        <p className="text-muted-foreground">
-          <span className="text-foreground font-medium">Sample cost data.</span> {provenance.note} Schema:{" "}
-          <code className="font-mono">{provenance.schema}</code>
-        </p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile label={`Spend (${cost.days}d)`} value={fmtUsd(cost.total)} />
-        <StatTile label="Daily mean" value={fmtUsd(cost.dailyMean)} />
-        <StatTile label="Projected monthly" value={fmtUsd(cost.projectedMonthly)} />
-        <StatTile
-          label="Cost anomalies"
-          value={String(cost.anomalies.length)}
-          tone={cost.anomalies.length > 0 ? "warning" : undefined}
-        />
-      </div>
-
-      <Panel>
-        <SectionHead
-          title="Daily spend"
-          hint="Amber marks a day above 1.5× the period mean — the §14 cost anomaly rule"
-        />
-        <CostBars data={cost.trend} anomalyDates={anomalyDates} />
-      </Panel>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel>
-          <SectionHead title="Cost by service" hint="Where the money goes" />
-          <RankedBars data={cost.byService} labelKey="service" valueKey="cost" formatter={fmtUsd} />
-        </Panel>
-        <Panel>
-          <SectionHead title="Cost by SKU" hint="The billing export's finest granularity" />
-          <RankedBars data={cost.bySku.slice(0, 8)} labelKey="sku" valueKey="cost" formatter={fmtUsd} />
-        </Panel>
-      </div>
-
-      <Panel>
-        <SectionHead
-          title="Optimisation recommendations"
-          hint="Advisory only — every one carries its evidence and estimated impact, and none of them act"
-        />
-        <ul className="space-y-3">
-          {recommendations.map((rec: any) => (
-            <li key={rec.id} className="border-border/60 bg-secondary/30 rounded-md border p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{rec.title}</p>
-                  <p className="text-muted-foreground mt-1 text-xs">{rec.reason}</p>
-                </div>
-                <div className="text-right">
-                  <p className="tabular text-base font-semibold" style={{ color: "var(--status-good)" }}>
-                    ~{fmtUsd(rec.impact)}
-                  </p>
-                  <p className="text-muted-foreground text-[0.65rem] tracking-wide uppercase">
-                    est. saving · {rec.confidence} confidence
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <p className="text-muted-foreground mb-1 text-[0.65rem] tracking-[0.08em] uppercase">Evidence</p>
-                  <ul className="space-y-0.5">
-                    {rec.evidence.map((line: string) => (
-                      <li key={line} className="text-muted-foreground font-mono text-[0.7rem]">
-                        {line}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <p className="text-muted-foreground mb-1 text-[0.65rem] tracking-[0.08em] uppercase">
-                    Suggested action
-                  </p>
-                  <p className="text-xs">{rec.action}</p>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </Panel>
     </div>
   );
 }

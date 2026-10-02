@@ -9,11 +9,45 @@
 
 const MINUTE = 60_000;
 
-const inWindow = (entries, fromMs, toMs) =>
-  entries.filter((e) => {
-    const t = Date.parse(e.timestamp);
-    return t >= fromMs && t <= toMs;
-  });
+/** Numeric timestamp, falling back for records that lack the fast field. */
+export const tsOf = (e) => e.t ?? (e.t = Date.parse(e.timestamp));
+
+/** Ascending-by-time copy, memoized per array identity for binary search. */
+const sortedCache = new WeakMap();
+function sortedAsc(entries) {
+  let sorted = sortedCache.get(entries);
+  if (!sorted) {
+    sorted = [...entries].sort((a, b) => tsOf(a) - tsOf(b));
+    sortedCache.set(entries, sorted);
+  }
+  return sorted;
+}
+
+/** First index whose timestamp is >= target. */
+function lowerBound(sorted, target) {
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (tsOf(sorted[mid]) < target) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/**
+ * Records inside [fromMs, toMs].
+ *
+ * Binary search over a sorted copy rather than a full scan: the alert engine
+ * slides thousands of windows per request, and a linear filter there made the
+ * overview take seconds.
+ */
+const inWindow = (entries, fromMs, toMs) => {
+  const sorted = sortedAsc(entries);
+  const start = lowerBound(sorted, fromMs);
+  const end = lowerBound(sorted, toMs + 1);
+  return sorted.slice(start, end);
+};
 
 /** Groups timestamps into fixed buckets so charts have a stable x-axis. */
 function bucketise(entries, fromMs, toMs, bucketMs) {
@@ -22,7 +56,7 @@ function bucketise(entries, fromMs, toMs, bucketMs) {
     buckets.set(at, []);
   }
   for (const entry of entries) {
-    const at = Math.floor(Date.parse(entry.timestamp) / bucketMs) * bucketMs;
+    const at = Math.floor(tsOf(entry) / bucketMs) * bucketMs;
     if (buckets.has(at)) buckets.get(at).push(entry);
   }
   return [...buckets.entries()].sort(([a], [b]) => a - b);
@@ -81,7 +115,8 @@ export function overview(entries, { fromMs, toMs, bucketMs }) {
       INFO: group.filter((e) => e.severity === "INFO").length,
       WARNING: group.filter((e) => e.severity === "WARNING").length,
       ERROR: group.filter((e) => e.severity === "ERROR").length,
-      errorRate: errorRate(group)
+      errorRate: errorRate(group),
+      p95: percentile(group.map((e) => e.responseTimeMs), 95)
     })),
     sparkline: buckets.map(([, group]) => group.length)
   };

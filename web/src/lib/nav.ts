@@ -16,8 +16,6 @@ export type PageId =
   | "performance"
   | "resources"
   | "alerts"
-  | "cost"
-  | "recommendations"
   | "connections";
 
 export interface Route {
@@ -58,8 +56,8 @@ export function useRoute() {
 
 /**
  * Navigation is grouped by the question each page answers, rather than being a
- * flat list of nine items. Operate = what is happening now; Optimise = what it
- * costs and what to change; Setup = what is connected.
+ * flat list of nine items. Operate = what is happening now;
+ * Setup = what is connected.
  */
 export const NAV_GROUPS: { group: string; items: { id: PageId; label: string; hint: string }[] }[] = [
   {
@@ -74,22 +72,26 @@ export const NAV_GROUPS: { group: string; items: { id: PageId; label: string; hi
     ]
   },
   {
-    group: "Optimise",
-    items: [
-      { id: "cost", label: "Cost", hint: "Spend by service and account, and anomalies" },
-      { id: "recommendations", label: "Recommendations", hint: "Advisory savings with evidence" }
-    ]
-  },
-  {
     group: "Setup",
-    items: [{ id: "connections", label: "Connections", hint: "Cloud accounts feeding this dashboard" }]
+    items: [{ id: "connections", label: "Setup", hint: "The cloud project feeding this dashboard" }]
   }
 ];
 
 export const NAV = NAV_GROUPS.flatMap((g) => g.items);
 
-export const RANGES = [
-  { hours: 1, label: "1h" },
-  { hours: 6, label: "6h" },
-  { hours: 24, label: "24h" }
+/**
+ * Time windows. `query` is passed straight to the API.
+ *
+ * `refreshMs` is per-window on purpose: a 1-minute view is useless unless it
+ * actually moves, while a 24-hour view re-polling every 5s is pure waste.
+ */
+export const WINDOWS = [
+  { id: "1m", label: "1m", query: "minutes=1", refreshMs: 5_000, title: "Last 1 minute, refreshed every 5s" },
+  { id: "5m", label: "5m", query: "minutes=5", refreshMs: 10_000, title: "Last 5 minutes, refreshed every 10s" },
+  { id: "15m", label: "15m", query: "minutes=15", refreshMs: 20_000, title: "Last 15 minutes" },
+  { id: "1h", label: "1h", query: "hours=1", refreshMs: 30_000, title: "Last hour" },
+  { id: "6h", label: "6h", query: "hours=6", refreshMs: 60_000, title: "Last 6 hours" },
+  { id: "24h", label: "24h", query: "hours=24", refreshMs: 120_000, title: "Last 24 hours" }
 ];
+
+export const DEFAULT_WINDOW = WINDOWS[4];

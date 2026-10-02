@@ -103,7 +103,9 @@ export const PROVIDERS = {
     shortName: "Azure",
     accountLabel: "Subscription",
     accountHint: "Subscription ID and resource group",
-    status: "available",
+    // Registry entry retained so the extension point stays demonstrable;
+    // hidden from the UI until an account is actually connected.
+    status: "hidden",
     capabilities: { logs: true, metrics: true, cost: true, recommendations: true },
     services: {
       logs: "Azure Monitor Logs (Log Analytics)",
@@ -141,9 +143,8 @@ export const PROVIDERS = {
     shortName: "AWS",
     accountLabel: "Account",
     accountHint: "Account ID and region",
-    // Declared but not yet wired — the UI shows it as coming soon rather than
-    // pretending it works.
-    status: "planned",
+    // Registry entry retained; hidden from the UI until connected.
+    status: "hidden",
     capabilities: { logs: true, metrics: true, cost: true, recommendations: false },
     services: {
       logs: "CloudWatch Logs",

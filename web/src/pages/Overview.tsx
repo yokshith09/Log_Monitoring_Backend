@@ -1,22 +1,47 @@
 import { Explain, Figure, Section } from "@/components/layout";
-import { GRADE_COLOR, GradeBadge, Legend, Panel, SeverityBadge, StatTile } from "@/components/primitives";
+import { GRADE_COLOR, GRADE_LABEL, Legend, Panel, SeverityBadge, StatTile } from "@/components/primitives";
 import { RankedBars, SeverityStack } from "@/components/charts";
-import { ProviderMark } from "@/components/scope";
 import { useApi } from "@/lib/api";
+import type { OverviewResponse } from "@/lib/contracts";
+import { ActionQueue, SummaryChip } from "@/components/actions";
+import { ProjectSummary, ServiceWatchlist } from "@/components/summary";
 import { buildHash } from "@/lib/nav";
 import { ALERT_COLOR, SEVERITY_COLOR, fmtMs, fmtNum, fmtPct, relative } from "@/lib/viz";
 
-export function Overview({ hours, scope }: { hours: number; scope: string }) {
-  const { data, loading } = useApi<any>(`/api/overview?hours=${hours}&scope=${scope}`, [hours, scope]);
+export function Overview({ window: win, scope, refreshMs }: { window: string; scope: string; refreshMs: number }) {
+  const { data, loading } = useApi<OverviewResponse>(`/api/overview?${win}&scope=${scope}`, [win, scope], refreshMs);
   if (loading || !data) return <PageSkeleton />;
 
   const {
     health, deltas, sparkline, timeline, severity, status, topEvents,
-    services, alerts, activeAlertCount, performance, resourceLatest, byConnection
+    services, alerts, activeAlertCount, performance, resourceLatest,
+    actions, actionCounts, summaries, byConnection, freshness
   } = data;
+
+  // Too little traffic in the window for a rate to mean anything.
+  const sparse = health.grade === "sparse" || health.grade === "nodata";
 
   return (
     <div className="space-y-10">
+      {/* --------------------------------------------------------- SUMMARY --
+          Who, how much, how healthy — before anything that needs reading. */}
+      <ProjectSummary
+        connection={byConnection[0]}
+        health={health}
+        services={services}
+        activeAlertCount={activeAlertCount}
+        criticalAlertCount={alerts.filter((a) => a.active && a.severity === "critical").length}
+        resolvedAlertCount={alerts.filter((a) => !a.active).length}
+        actNowCount={actionCounts.critical}
+        freshness={freshness}
+        scope={scope}
+      />
+
+      {/* ------------------------------------------------------- ACTIONS --
+          First on the page, before any chart. A reader who only looks at the
+          top of this dashboard should still learn what needs doing. */}
+      <ActionQueue actions={actions} counts={actionCounts} sparse={sparse} />
+
       {/* ---------------------------------------------------------- HEALTH */}
       <Section
         eyebrow="Right now"
@@ -28,11 +53,12 @@ export function Overview({ hours, scope }: { hours: number; scope: string }) {
             <div>
               <div className="flex items-center gap-3">
                 <span aria-hidden className="size-3 rounded-full" style={{ background: GRADE_COLOR[health.grade] }} />
-                <span className="text-4xl leading-none font-semibold capitalize">{health.grade}</span>
-                <GradeBadge grade={health.grade} />
+                <span className="text-4xl leading-none font-semibold first-letter:uppercase">
+                  {GRADE_LABEL[health.grade] ?? health.grade}
+                </span>
               </div>
               <p className="text-muted-foreground mt-2.5 text-sm">
-                {fmtNum(health.requests)} requests over the last {hours}h &middot; {health.requestsPerMinute}/min
+                {fmtNum(health.requests)} requests &middot; {health.requestsPerMinute}/min
                 &middot; {health.uniqueServices} services &middot; {health.uniqueRoutes} routes
               </p>
             </div>
@@ -42,13 +68,13 @@ export function Overview({ hours, scope }: { hours: number; scope: string }) {
                 label="Availability"
                 value={fmtPct(health.availability, 2)}
                 help="Share of requests that did not fail on our side"
-                tone={health.availability < 0.99 ? "var(--sev-error)" : undefined}
+                tone={sparse ? undefined : health.availability < 0.99 ? "var(--sev-error)" : undefined}
               />
               <Figure
                 label="Apdex"
                 value={health.apdex.toFixed(2)}
                 help="1.00 is everyone satisfied; below 0.80 needs work"
-                tone={health.apdex < 0.8 ? "var(--sev-warning)" : undefined}
+                tone={sparse ? undefined : health.apdex < 0.8 ? "var(--sev-warning)" : undefined}
               />
               <Figure label="p95 latency" value={fmtMs(health.p95)} help="95% of requests were faster than this" />
               <Figure label="p99 latency" value={fmtMs(health.p99)} help="The slow tail — your worst 1%" />
@@ -81,6 +107,8 @@ export function Overview({ hours, scope }: { hours: number; scope: string }) {
             delta={deltas.errorRate}
             deltaLabel={`${fmtPct(Math.abs(deltas.errorRate), 2)} change`}
             tone={health.errorRate > 0.05 ? "critical" : health.errorRate > 0.02 ? "warning" : undefined}
+            spark={timeline.map((p) => p.errorRate)}
+            sparkTone="var(--sev-error)"
             to="logs"
             params={{ severity: "ERROR", scope }}
             caption="Share of entries logged at ERROR"
@@ -91,6 +119,8 @@ export function Overview({ hours, scope }: { hours: number; scope: string }) {
             delta={deltas.p95}
             deltaLabel={`${deltas.p95 >= 0 ? "+" : ""}${fmtMs(Math.abs(deltas.p95))} change`}
             tone={health.p95 > 500 ? "warning" : undefined}
+            spark={timeline.map((p) => p.p95)}
+            sparkTone="var(--sev-warning)"
             to="performance"
             params={{ scope }}
             caption="Threshold for the latency alert is 500ms"
@@ -106,58 +136,12 @@ export function Overview({ hours, scope }: { hours: number; scope: string }) {
         </div>
       </Section>
 
-      {/* ------------------------------------------------------ WHERE FROM */}
-      {byConnection.length > 1 && (
-        <Section
-          eyebrow="Multi-cloud"
-          title="Where this traffic came from"
-          description="Telemetry from every connected account, normalized into one format. Narrow the whole dashboard to a provider or a single account from the scope selector above."
-          right={
-            <a href={buildHash("connections")} className="text-muted-foreground hover:text-foreground text-xs">
-              Manage connections &rarr;
-            </a>
-          }
-        >
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {byConnection.map((connection: any) => (
-              <a
-                key={connection.id}
-                href={buildHash("overview", { scope: connection.id })}
-                className="border-border/60 bg-card hover:border-border hover:bg-secondary/30 rounded-lg border p-4 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <ProviderMark provider={connection.provider} />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{connection.name}</p>
-                      <p className="text-muted-foreground truncate font-mono text-xs">{connection.account}</p>
-                    </div>
-                  </div>
-                  <span className="border-border/70 text-muted-foreground shrink-0 rounded border px-1.5 py-0.5 text-[0.62rem]">
-                    {connection.environment}
-                  </span>
-                </div>
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  <Figure label="Requests" value={fmtNum(connection.requests)} size="sm" />
-                  <Figure
-                    label="Errors"
-                    value={fmtNum(connection.errors)}
-                    size="sm"
-                    tone={connection.errors > 0 ? "var(--sev-error)" : undefined}
-                  />
-                  <Figure label="Warnings" value={fmtNum(connection.warnings)} size="sm" />
-                </div>
-              </a>
-            ))}
-          </div>
-        </Section>
-      )}
-
       {/* ----------------------------------------------------------- ERRORS */}
       <Section
         eyebrow="Reliability"
         title="What is failing"
         description="Server errors are ours to fix; client errors mean callers are sending something we rejected. They need different responses, so they are counted separately."
+        right={<SummaryChip summary={summaries.reliability} />}
       >
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatTile
@@ -260,40 +244,15 @@ export function Overview({ hours, scope }: { hours: number; scope: string }) {
         title="Health by service"
         description="Which workload is responsible. A grade combines its error rate, latency and availability."
         right={
-          <a href={buildHash("services", { scope })} className="text-muted-foreground hover:text-foreground text-xs">
-            All services &rarr;
-          </a>
+          <>
+            <SummaryChip summary={summaries.services} />
+            <a href={buildHash("services", { scope })} className="text-muted-foreground hover:text-foreground text-xs">
+              All services &rarr;
+            </a>
+          </>
         }
       >
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {services.slice(0, 6).map((service: any) => (
-            <a
-              key={service.name}
-              href={buildHash("logs", { service: service.name, scope })}
-              className="border-border/60 bg-card hover:border-border hover:bg-secondary/30 rounded-lg border p-4 transition-colors"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="truncate font-mono text-sm font-medium">{service.name}</span>
-                <GradeBadge grade={service.grade} />
-              </div>
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <Figure label="Requests" value={fmtNum(service.requests)} size="sm" />
-                <Figure
-                  label="Error rate"
-                  value={fmtPct(service.errorRate)}
-                  size="sm"
-                  tone={service.errorRate > 0.02 ? "var(--sev-error)" : undefined}
-                />
-                <Figure label="p95" value={fmtMs(service.p95)} size="sm" />
-              </div>
-              {service.topFailure && (
-                <p className="text-muted-foreground mt-2.5 truncate font-mono text-xs">
-                  top failure: {service.topFailure} &times;{service.topFailureCount}
-                </p>
-              )}
-            </a>
-          ))}
-        </div>
+        <ServiceWatchlist services={services} scope={scope} />
       </Section>
 
       {/* ---------------------------------------------------------- DETAIL */}

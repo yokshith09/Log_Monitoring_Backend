@@ -153,26 +153,26 @@
   --radius: 0.5rem;
 
   /* ---- Light (default) ---- */
-  --background: #f4f5f3;
-  --foreground: #1a2b25;
-  --card: #fbfbf9;
+  --background: #eef0ec;
+  --foreground: #16251f;
+  --card: #ffffff;
   --card-foreground: #1a2b25;
   --popover: #ffffff;
   --popover-foreground: #1a2b25;
 
   --primary: #4e6239;
   --primary-foreground: #fbfbf9;
-  --secondary: #e9ebe6;
-  --secondary-foreground: #3a4a43;
-  --muted: #e9ebe6;
-  --muted-foreground: #566a62;
+  --secondary: #e4e8e0;
+  --secondary-foreground: #33433c;
+  --muted: #e4e8e0;
+  --muted-foreground: #4d6058;
   --accent: #e2e6df;
   --accent-foreground: #1a2b25;
   --destructive: #c0392b;
   --destructive-foreground: #ffffff;
 
-  --border: rgb(26 43 37 / 0.12);
-  --input: rgb(26 43 37 / 0.16);
+  --border: rgb(22 37 31 / 0.18);
+  --input: rgb(22 37 31 / 0.22);
   --ring: #4e6239;
 
   --chart-1: #2a78d6;
@@ -190,13 +190,13 @@
   --grid: rgb(26 43 37 / 0.08);
   --axis: rgb(26 43 37 / 0.18);
 
-  --sidebar: #f4f5f3;
+  --sidebar: #eef0ec;
   --sidebar-foreground: #3a4a43;
   --sidebar-primary: #4e6239;
   --sidebar-primary-foreground: #fbfbf9;
   --sidebar-accent: #e9ebe6;
   --sidebar-accent-foreground: #1a2b25;
-  --sidebar-border: rgb(26 43 37 / 0.12);
+  --sidebar-border: rgb(22 37 31 / 0.18);
   --sidebar-ring: #4e6239;
 }
 
@@ -283,4 +283,11 @@ body {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted-foreground);
+}
+
+/* Light mode only: a hairline shadow so a white card still reads as raised
+   against the page. Dark mode gets its separation from the surface step and
+   would only look muddy with a shadow on top. */
+:root:not(.dark) [data-panel] {
+  box-shadow: 0 1px 2px rgb(22 37 31 / 0.05), 0 1px 1px rgb(22 37 31 / 0.03);
 }

@@ -1,6 +1,7 @@
 import { FreshnessNote, GradeBadge, Panel, StatTile } from "@/components/primitives";
 import { PageSkeleton } from "./Overview";
 import { useApi } from "@/lib/api";
+import type { ServicesResponse } from "@/lib/contracts";
 import { buildHash } from "@/lib/nav";
 import { SERIES, fmtMs, fmtNum, fmtPct } from "@/lib/viz";
 
@@ -9,8 +10,8 @@ import { SERIES, fmtMs, fmtNum, fmtPct } from "@/lib/viz";
  * Each row is a drill-down target into that service's logs — step 3 of the
  * §12 journey.
  */
-export function Services({ hours, scope }: { hours: number; scope: string }) {
-  const { data, loading } = useApi<any>(`/api/services?hours=${hours}&scope=${scope}`, [hours, scope]);
+export function Services({ window: win, scope, refreshMs }: { window: string; scope: string; refreshMs: number }) {
+  const { data, loading } = useApi<ServicesResponse>(`/api/services?${win}&scope=${scope}`, [win, scope], refreshMs);
   if (loading || !data) return <PageSkeleton />;
 
   const { services, freshness } = data;

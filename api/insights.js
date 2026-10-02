@@ -6,6 +6,8 @@
  * jsonPayload contract and is source-agnostic.
  */
 
+import { tsOf } from "./analytics.js";
+
 const APDEX_TARGET_MS = 200;
 
 const pct = (part, whole) => (whole === 0 ? 0 : part / whole);
@@ -30,7 +32,15 @@ export function apdex(latencies, targetMs = APDEX_TARGET_MS) {
 }
 
 /** Health grade from the signals a developer actually acts on. */
-export function grade({ errorRate, p95, availability }) {
+export function grade({ errorRate, p95, availability, requests }) {
+  // No traffic is not health. Reporting "healthy, 100% availability" for an
+  // empty window is the same failure as a silent error: the reader cannot tell
+  // "nothing went wrong" from "we saw nothing at all".
+  if (requests === 0) return "nodata";
+  // A rate computed from a handful of requests is arithmetic, not a verdict.
+  // One failure in eight is "12.5% error rate"; calling that critical makes the
+  // short windows permanently red and teaches the reader to ignore the grade.
+  if (requests < 20) return "sparse";
   if (errorRate > 0.05 || availability < 0.99) return "critical";
   if (errorRate > 0.02 || p95 > 500 || availability < 0.995) return "degraded";
   if (errorRate > 0.005 || p95 > 300) return "watch";
@@ -44,7 +54,7 @@ export function grade({ errorRate, p95, availability }) {
  */
 export function serviceHealth(entries, { fromMs, toMs, bucketMs }) {
   const window = entries.filter((e) => {
-    const t = Date.parse(e.timestamp);
+    const t = tsOf(e);
     return t >= fromMs && t <= toMs;
   });
 
@@ -73,7 +83,7 @@ export function serviceHealth(entries, { fromMs, toMs, bucketMs }) {
     const buckets = new Map();
     for (let at = Math.floor(fromMs / bucketMs) * bucketMs; at <= toMs; at += bucketMs) buckets.set(at, 0);
     for (const row of rows) {
-      const at = Math.floor(Date.parse(row.timestamp) / bucketMs) * bucketMs;
+      const at = Math.floor(tsOf(row) / bucketMs) * bucketMs;
       if (buckets.has(at)) buckets.set(at, buckets.get(at) + 1);
     }
 
@@ -95,7 +105,7 @@ export function serviceHealth(entries, { fromMs, toMs, bucketMs }) {
       topFailureCount,
       routes: [...new Set(rows.map((e) => e.route))].sort(),
       sparkline: [...buckets.values()],
-      grade: grade({ errorRate, p95, availability })
+      grade: grade({ errorRate, p95, availability, requests: rows.length })
     };
   }).sort((a, b) => b.requests - a.requests);
 }
@@ -103,7 +113,7 @@ export function serviceHealth(entries, { fromMs, toMs, bucketMs }) {
 /** Headline numbers for the overview, beyond raw counts. */
 export function healthMetrics(entries, { fromMs, toMs }) {
   const window = entries.filter((e) => {
-    const t = Date.parse(e.timestamp);
+    const t = tsOf(e);
     return t >= fromMs && t <= toMs;
   });
 
@@ -137,14 +147,14 @@ export function healthMetrics(entries, { fromMs, toMs }) {
     slowRequests: window.filter((e) => e.responseTimeMs > 500).length,
     uniqueRoutes: new Set(window.map((e) => e.route)).size,
     uniqueServices: new Set(window.map((e) => e.component)).size,
-    grade: grade({ errorRate, p95, availability })
+    grade: grade({ errorRate, p95, availability, requests: window.length })
   };
 }
 
 /** Status-code family split — §10.3 names "a sudden increase in 5xx" explicitly. */
 export function statusBreakdown(entries, { fromMs, toMs }) {
   const window = entries.filter((e) => {
-    const t = Date.parse(e.timestamp);
+    const t = tsOf(e);
     return t >= fromMs && t <= toMs;
   });
 
@@ -245,7 +255,7 @@ export const REMEDIATION = {
  */
 export function correlate(entries, resources, { fromMs, toMs }) {
   const window = entries.filter((e) => {
-    const t = Date.parse(e.timestamp);
+    const t = tsOf(e);
     return t >= fromMs && t <= toMs;
   });
   const res = resources.filter((p) => {

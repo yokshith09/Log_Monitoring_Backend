@@ -38,29 +38,52 @@ async function get<T>(path: string): Promise<T> {
   return response.json();
 }
 
-/** Small fetch hook — refetches whenever the query string changes. */
-export function useApi<T>(path: string, deps: unknown[] = []) {
+/**
+ * Fetch hook with optional polling.
+ *
+ * Previous data is kept while a refetch is in flight, so a poll does not flash
+ * the page back to skeletons — the single worst thing a live dashboard can do.
+ * `loading` is therefore true only on the very first load.
+ */
+export function useApi<T>(path: string, deps: unknown[] = [], refreshMs = 0) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    get<T>(path)
-      .then((result) => {
-        if (!cancelled) {
+
+    const load = (isPoll: boolean) => {
+      if (isPoll) setRefreshing(true);
+      get<T>(path)
+        .then((result) => {
+          if (cancelled) return;
           setData(result);
           setError(null);
-        }
-      })
-      .catch((err) => !cancelled && setError(err.message))
-      .finally(() => !cancelled && setLoading(false));
+        })
+        .catch((err) => !cancelled && setError(err.message))
+        .finally(() => {
+          if (cancelled) return;
+          setLoading(false);
+          setRefreshing(false);
+        });
+    };
+
+    load(false);
+
+    if (refreshMs > 0) {
+      const id = setInterval(() => load(true), refreshMs);
+      return () => {
+        cancelled = true;
+        clearInterval(id);
+      };
+    }
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, [...deps, refreshMs]);
 
-  return { data, error, loading };
+  return { data, error, loading, refreshing };
 }
