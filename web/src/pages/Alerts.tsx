@@ -10,8 +10,8 @@ import { ALERT_COLOR, fmtMs, fmtNum, fmtPct, relative } from "@/lib/viz";
  * "related signals for the same time period". Expanding an alert answers three
  * questions: what else was happening, why it probably happened, and what to do.
  */
-export function Alerts({ hours }: { hours: number }) {
-  const { data, loading } = useApi<any>(`/api/alerts?hours=${hours}`, [hours]);
+export function Alerts({ hours, scope }: { hours: number; scope: string }) {
+  const { data, loading } = useApi<any>(`/api/alerts?hours=${hours}&scope=${scope}`, [hours, scope]);
   const [open, setOpen] = useState<string | null>(null);
   if (loading || !data) return <PageSkeleton />;
 

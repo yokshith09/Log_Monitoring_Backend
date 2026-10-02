@@ -12,8 +12,20 @@
  * swapping in the live collector is a one-module change.
  */
 
+import { CONNECTIONS } from "./connections.js";
+
 const HOURS = 24;
 const now = () => Date.now();
+
+/** Picks which connection a record belongs to, by configured weight. */
+function pickConnection(random) {
+  let roll = random();
+  for (const connection of CONNECTIONS) {
+    roll -= connection.weight;
+    if (roll <= 0) return connection;
+  }
+  return CONNECTIONS[0];
+}
 
 /** StaySync's real event catalogue, with the weight each carries in normal traffic. */
 const BASELINE = [
@@ -105,9 +117,11 @@ const MESSAGES = {
   order_stock_conflict: "Concurrent stock contention prevented this order"
 };
 
-function makeEntry(spec, timestamp) {
+function makeEntry(spec, timestamp, connection = pickConnection(rand)) {
   return {
     timestamp: new Date(timestamp).toISOString(),
+    connectionId: connection.id,
+    provider: connection.provider,
     severity: spec.severity,
     event: spec.event,
     component: spec.component,
@@ -116,7 +130,7 @@ function makeEntry(spec, timestamp) {
     route: spec.route,
     statusCode: spec.status,
     responseTimeMs: between(spec.latency),
-    environment: "production",
+    environment: connection.environment,
     message: MESSAGES[spec.event] ?? `${spec.event.replace(/_/g, " ")}`
   };
 }
@@ -169,7 +183,7 @@ export function logEntries() {
  * Resource metrics. On GCP these come from Cloud Monitoring; locally they are
  * the Node process's own counters. Shape is identical either way.
  */
-export function resourceSeries() {
+export function resourceSeries(connectionId = null) {
   const end = now();
   const points = [];
   const series = mulberry32(99);
@@ -186,6 +200,7 @@ export function resourceSeries() {
 
     points.push({
       timestamp: new Date(at).toISOString(),
+      connectionId: connectionId ?? CONNECTIONS[0].id,
       cpuPercent: Math.min(98, Math.round((18 + load * 42 * spike + series() * 9) * 10) / 10),
       memoryMb: Math.round(180 + load * 120 * spike + series() * 25),
       instanceCount: Math.max(1, Math.round(load * 3 * spike)),
@@ -194,47 +209,4 @@ export function resourceSeries() {
     });
   }
   return points;
-}
-
-/**
- * Cost rows in the shape of the Cloud Billing BigQuery export
- * (service.description, sku.description, cost, usage). Sample until the export
- * is enabled — the cost view reads this contract, not this file.
- */
-export function costRows() {
-  const days = 30;
-  const end = now();
-  const services = [
-    { service: "Cloud Run", sku: "CPU Allocation Time", base: 0.42, variance: 0.18 },
-    { service: "Cloud Run", sku: "Memory Allocation Time", base: 0.21, variance: 0.08 },
-    { service: "Cloud Run", sku: "Requests", base: 0.06, variance: 0.03 },
-    { service: "Cloud SQL", sku: "DB custom instance core running", base: 1.12, variance: 0.05 },
-    { service: "Cloud SQL", sku: "DB custom instance RAM running", base: 0.68, variance: 0.04 },
-    { service: "Cloud SQL", sku: "Storage PD SSD", base: 0.17, variance: 0.01 },
-    { service: "Cloud Logging", sku: "Log Volume", base: 0.14, variance: 0.11 },
-    { service: "Artifact Registry", sku: "Container Storage", base: 0.03, variance: 0.01 },
-    { service: "Cloud Build", sku: "Build Time", base: 0.05, variance: 0.05 },
-    { service: "Pub/Sub", sku: "Message Delivery", base: 0.02, variance: 0.02 },
-    { service: "BigQuery", sku: "Analysis", base: 0.04, variance: 0.03 }
-  ];
-
-  const costRand = mulberry32(777);
-  const rows = [];
-
-  for (let day = days - 1; day >= 0; day -= 1) {
-    const date = new Date(end - day * 86_400_000).toISOString().slice(0, 10);
-    for (const s of services) {
-      // A deliberate Cloud Run cost anomaly three days ago, sized so the daily
-      // total clears the 1.5x-of-mean rule rather than being diluted by it.
-      const anomaly = day === 3 && s.service === "Cloud Run" ? 6.5 : 1;
-      rows.push({
-        date,
-        service: s.service,
-        sku: s.sku,
-        cost: Math.round((s.base + costRand() * s.variance) * anomaly * 100) / 100,
-        currency: "USD"
-      });
-    }
-  }
-  return rows;
 }

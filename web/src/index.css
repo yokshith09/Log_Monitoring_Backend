@@ -128,32 +128,79 @@
     @apply font-sans;
     }
 }
+
 /* ===========================================================================
-   Vantage theme — dark operations surface.
+   Vantage theme — light and dark, both validated.
 
-   Every colour below was validated with the dataviz palette checker against
-   this surface (#12221d), not eyeballed:
+   Categorical series colours were checked with the dataviz palette validator
+   against each mode's own surface, not eyeballed and not auto-flipped:
 
-     node validate_palette.js "#3987e5,#d95926,#199e70,#c98500,#d55181,#008300" \
-       --mode dark --surface "#12221d"
-     → lightness band PASS · chroma floor PASS · CVD separation PASS (worst
-       adjacent ΔE 8.4) · normal-vision floor PASS (worst 19.3) · contrast PASS
+     dark  (surface #12221d) → all checks PASS, worst adjacent CVD dE 8.4
+     light (surface #fbfbf9) → all checks PASS, with a contrast WARN on three
+       slots (aqua 2.72, yellow 2.09, magenta 2.60). That WARN is not
+       dismissable: in light mode those series MUST carry visible direct
+       labels or a table view, which the ranked-bar and legend components do.
 
    Rules this encodes:
    - Series colours are CATEGORICAL: fixed order, never cycled, never recoloured
      when a filter changes the series count.
-   - Severity is a STATUS encoding, not a series. Its colours are reserved and
-     always ship with a text label, so meaning never rests on colour alone.
-   - INFO is deliberately neutral grey: it is the bulk of traffic and must
-     recede so that WARNING and ERROR carry the eye.
+   - Severity is a STATUS encoding, not a series. Reserved, and always paired
+     with a text label so meaning never rests on colour alone.
+   - INFO is deliberately neutral: it is the bulk of traffic and must recede.
    =========================================================================== */
 
-:root,
-.dark {
+:root {
   --radius: 0.5rem;
 
-  /* Surfaces — cypress-tinted dark, tying to StaySync's brand without
-     borrowing its low-contrast brand hues for data marks. */
+  /* ---- Light (default) ---- */
+  --background: #f4f5f3;
+  --foreground: #1a2b25;
+  --card: #fbfbf9;
+  --card-foreground: #1a2b25;
+  --popover: #ffffff;
+  --popover-foreground: #1a2b25;
+
+  --primary: #4e6239;
+  --primary-foreground: #fbfbf9;
+  --secondary: #e9ebe6;
+  --secondary-foreground: #3a4a43;
+  --muted: #e9ebe6;
+  --muted-foreground: #566a62;
+  --accent: #e2e6df;
+  --accent-foreground: #1a2b25;
+  --destructive: #c0392b;
+  --destructive-foreground: #ffffff;
+
+  --border: rgb(26 43 37 / 0.12);
+  --input: rgb(26 43 37 / 0.16);
+  --ring: #4e6239;
+
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --chart-6: #008300;
+
+  --sev-info: #566a62;
+  --sev-warning: #b07000;
+  --sev-error: #c0392b;
+  --status-good: #0a7d0a;
+
+  --grid: rgb(26 43 37 / 0.08);
+  --axis: rgb(26 43 37 / 0.18);
+
+  --sidebar: #f4f5f3;
+  --sidebar-foreground: #3a4a43;
+  --sidebar-primary: #4e6239;
+  --sidebar-primary-foreground: #fbfbf9;
+  --sidebar-accent: #e9ebe6;
+  --sidebar-accent-foreground: #1a2b25;
+  --sidebar-border: rgb(26 43 37 / 0.12);
+  --sidebar-ring: #4e6239;
+}
+
+.dark {
   --background: #0c1714;
   --foreground: #ffffff;
   --card: #12221d;
@@ -166,7 +213,7 @@
   --secondary: #182c25;
   --secondary-foreground: #c3c2b7;
   --muted: #182c25;
-  --muted-foreground: #898781;
+  --muted-foreground: #8fa29a;
   --accent: #1e3a30;
   --accent-foreground: #ffffff;
   --destructive: #d03b3b;
@@ -176,8 +223,6 @@
   --input: rgb(255 255 255 / 0.14);
   --ring: #8fae69;
 
-  /* Categorical series — validated order, do not reorder or extend past 6
-     without re-running the checker. */
   --chart-1: #3987e5;
   --chart-2: #d95926;
   --chart-3: #199e70;
@@ -185,13 +230,11 @@
   --chart-5: #d55181;
   --chart-6: #008300;
 
-  /* Status / severity — reserved, never reused as a series colour. */
   --sev-info: #898781;
   --sev-warning: #fab219;
   --sev-error: #d03b3b;
   --status-good: #0ca30c;
 
-  /* Chart chrome — deliberately recessive. */
   --grid: #1e3a30;
   --axis: #2a4a3e;
 
@@ -227,8 +270,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Values that must align vertically get tabular figures; headline numbers keep
+/* Columns that must align vertically get tabular figures; headline numbers keep
    proportional figures, per the dataviz typography rule. */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Section eyebrow — smaller than the heading it sits above, never competing. */
+.eyebrow {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
 }

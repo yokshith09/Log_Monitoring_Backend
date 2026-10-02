@@ -1,7 +1,10 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
-import { logEntries, resourceSeries, costRows } from "./data.js";
+import { logEntries, resourceSeries } from "./data.js";
+import { costRows } from "./cost-data.js";
+import { listConnections, resolveScope, applyScope } from "./connections.js";
+import { providerList } from "./providers.js";
 import {
   overview,
   severityBreakdown,
@@ -37,6 +40,15 @@ const json = (res, body, status = 200) => {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
   res.end(JSON.stringify(body));
 };
+
+/** The active connection scope: all, a provider, or one account. */
+const scopeOf = (url) => resolveScope(url.searchParams.get("scope"));
+
+/** Log records narrowed to the active scope. */
+const scopedEntries = (url) => applyScope(logEntries(), url.searchParams.get("scope"));
+
+/** Cost rows narrowed to the active scope. */
+const scopedCost = (url) => applyScope(costRows(), url.searchParams.get("scope"));
 
 function range(url) {
   const hours = Number(url.searchParams.get("hours") ?? 6);
@@ -95,12 +107,13 @@ function filterLogs(entries, url) {
 const routes = {
   "/api/overview": (url) => {
     const r = range(url);
-    const entries = logEntries();
+    const entries = scopedEntries(url);
     const agg = overview(entries, r);
     const alerts = evaluateAlerts(entries, r);
 
     return {
       range: r,
+      scope: scopeOf(url),
       freshness: freshness(),
       health: healthMetrics(entries, r),
       deltas: agg.deltas,
@@ -114,18 +127,27 @@ const routes = {
       alerts: alerts.slice(0, 4),
       activeAlertCount: alerts.filter((a) => a.active).length,
       performance: performance(entries, r).slowestRoutes.slice(0, 5),
-      resourceLatest: resourceSeries().at(-1) ?? {}
+      resourceLatest: resourceSeries().at(-1) ?? {},
+      byConnection: listConnections().map((c) => {
+        const rows = entries.filter((e) => e.connectionId === c.id);
+        return {
+          ...c,
+          requests: rows.length,
+          errors: rows.filter((e) => e.severity === "ERROR").length,
+          warnings: rows.filter((e) => e.severity === "WARNING").length
+        };
+      }).filter((c) => c.requests > 0)
     };
   },
 
   "/api/services": (url) => {
     const r = range(url);
-    return { range: r, freshness: freshness(), services: serviceHealth(logEntries(), r) };
+    return { range: r, freshness: freshness(), services: serviceHealth(scopedEntries(url), r) };
   },
 
   "/api/logs": (url) => {
     const r = range(url);
-    const entries = logEntries();
+    const entries = scopedEntries(url);
     const windowed = entries.filter((e) => {
       const t = Date.parse(e.timestamp);
       return t >= r.fromMs && t <= r.toMs;
@@ -152,7 +174,7 @@ const routes = {
 
   "/api/performance": (url) => {
     const r = range(url);
-    const entries = logEntries();
+    const entries = scopedEntries(url);
     return { range: r, freshness: freshness(), health: healthMetrics(entries, r), ...performance(entries, r) };
   },
 
@@ -188,9 +210,9 @@ const routes = {
 
   "/api/cost": (url) => {
     const r = range(url);
-    const rows = costRows();
+    const rows = scopedCost(url);
     const cost = costSummary(rows);
-    const health = healthMetrics(logEntries(), r);
+    const health = healthMetrics(scopedEntries(url), r);
 
     // Unit economics: spend per 1000 requests is the number that tells you
     // whether cost is growing because usage grew or because something regressed.
@@ -200,7 +222,7 @@ const routes = {
     return {
       freshness: freshness(),
       cost: { ...cost, costPerThousandRequests: Math.round(costPerThousand * 10000) / 10000 },
-      recommendations: recommendations(cost, resourceSeries(), logEntries()),
+      recommendations: recommendations(cost, resourceSeries(), scopedEntries(url)),
       provenance: {
         source: "sample",
         note: "Schema-accurate sample in the Cloud Billing BigQuery export shape. Swaps to live data when the export is enabled; no code change required.",
@@ -210,19 +232,19 @@ const routes = {
   },
 
   "/api/recommendations": () => {
-    const cost = costSummary(costRows());
+    const cost = costSummary(scopedCost(url));
     return {
       freshness: freshness(),
-      recommendations: recommendations(cost, resourceSeries(), logEntries()),
+      recommendations: recommendations(cost, resourceSeries(), scopedEntries(url)),
       totalEstimatedSaving:
-        Math.round(recommendations(cost, resourceSeries(), logEntries()).reduce((s, r) => s + r.impact, 0) * 100) / 100,
+        Math.round(recommendations(cost, resourceSeries(), scopedEntries(url)).reduce((s, r) => s + r.impact, 0) * 100) / 100,
       provenance: { source: "sample", note: "Cost inputs are sample data; the rules and evidence are real." }
     };
   },
 
   "/api/alerts": (url) => {
     const r = range(url);
-    const entries = logEntries();
+    const entries = scopedEntries(url);
     const resources = resourceSeries();
     const alerts = evaluateAlerts(entries, r).map((alert) => ({
       ...alert,
@@ -243,6 +265,24 @@ const routes = {
       }))
     };
   },
+
+  "/api/connections": () => ({
+    connections: listConnections(),
+    providers: providerList().map((p) => ({
+      id: p.id,
+      name: p.name,
+      shortName: p.shortName,
+      accountLabel: p.accountLabel,
+      accountHint: p.accountHint,
+      status: p.status,
+      capabilities: p.capabilities,
+      services: p.services,
+      credentials: p.credentials,
+      requiredRoles: p.requiredRoles,
+      queryLanguage: p.queryLanguage,
+      exampleQuery: p.exampleQuery
+    }))
+  }),
 
   "/api/meta": () => ({
     source: process.env.VANTAGE_SOURCE ?? "sample",

@@ -15,9 +15,10 @@ export type PageId =
   | "logs"
   | "performance"
   | "resources"
+  | "alerts"
   | "cost"
   | "recommendations"
-  | "alerts";
+  | "connections";
 
 export interface Route {
   page: PageId;
@@ -55,16 +56,37 @@ export function useRoute() {
   return { ...route, go };
 }
 
-export const NAV: { id: PageId; label: string; hint: string }[] = [
-  { id: "overview", label: "Overview", hint: "Health, errors, alerts at a glance" },
-  { id: "services", label: "Services", hint: "Per-service health and failures" },
-  { id: "logs", label: "Logs", hint: "Search and filter every entry" },
-  { id: "performance", label: "Performance", hint: "Latency and throughput" },
-  { id: "resources", label: "Resources", hint: "CPU, memory, connections" },
-  { id: "cost", label: "Cost", hint: "Spend and anomalies" },
-  { id: "recommendations", label: "Recommendations", hint: "Advisory optimisations" },
-  { id: "alerts", label: "Alerts", hint: "Threshold breaches and fixes" }
+/**
+ * Navigation is grouped by the question each page answers, rather than being a
+ * flat list of nine items. Operate = what is happening now; Optimise = what it
+ * costs and what to change; Setup = what is connected.
+ */
+export const NAV_GROUPS: { group: string; items: { id: PageId; label: string; hint: string }[] }[] = [
+  {
+    group: "Operate",
+    items: [
+      { id: "overview", label: "Overview", hint: "Health, errors and alerts at a glance" },
+      { id: "services", label: "Services", hint: "Health broken down per workload" },
+      { id: "logs", label: "Logs", hint: "Search and filter every log entry" },
+      { id: "performance", label: "Performance", hint: "Latency percentiles and throughput" },
+      { id: "resources", label: "Resources", hint: "CPU, memory, instances and connections" },
+      { id: "alerts", label: "Alerts", hint: "Thresholds crossed, with suggested fixes" }
+    ]
+  },
+  {
+    group: "Optimise",
+    items: [
+      { id: "cost", label: "Cost", hint: "Spend by service and account, and anomalies" },
+      { id: "recommendations", label: "Recommendations", hint: "Advisory savings with evidence" }
+    ]
+  },
+  {
+    group: "Setup",
+    items: [{ id: "connections", label: "Connections", hint: "Cloud accounts feeding this dashboard" }]
+  }
 ];
+
+export const NAV = NAV_GROUPS.flatMap((g) => g.items);
 
 export const RANGES = [
   { hours: 1, label: "1h" },

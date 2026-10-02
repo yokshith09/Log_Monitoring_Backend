@@ -6,11 +6,13 @@ import { SERIES, fmtMs, fmtUsd } from "@/lib/viz";
 
 /* ------------------------------------------------------------ performance */
 
-export function Performance({ hours }: { hours: number }) {
-  const { data, loading } = useApi<any>(`/api/performance?hours=${hours}`, [hours]);
+export function Performance({ hours, scope }: { hours: number; scope: string }) {
+  const { data, loading } = useApi<any>(`/api/performance?hours=${hours}&scope=${scope}`, [hours, scope]);
   if (loading || !data) return <PageSkeleton />;
 
-  const latest = data.latency.at(-1) ?? { p50: 0, p95: 0, p99: 0 };
+  // The final bucket is partial at "now" and often empty, which rendered 0ms.
+  // Headline percentiles come from the whole window instead.
+  const latest = data.health ?? { p50: 0, p95: 0, p99: 0 };
 
   return (
     <div className="space-y-5">
@@ -85,8 +87,8 @@ export function Performance({ hours }: { hours: number }) {
 
 /* -------------------------------------------------------------- resources */
 
-export function Resources({ hours }: { hours: number }) {
-  const { data, loading } = useApi<any>(`/api/resources?hours=${hours}`, [hours]);
+export function Resources({ hours, scope }: { hours: number; scope: string }) {
+  const { data, loading } = useApi<any>(`/api/resources?hours=${hours}&scope=${scope}`, [hours, scope]);
   if (loading || !data) return <PageSkeleton />;
 
   const { latest, peaks, series } = data;
@@ -134,8 +136,8 @@ export function Resources({ hours }: { hours: number }) {
 
 /* ------------------------------------------------------------------- cost */
 
-export function Cost() {
-  const { data, loading } = useApi<any>("/api/cost", []);
+export function Cost({ scope }: { scope: string }) {
+  const { data, loading } = useApi<any>(`/api/cost?scope=${scope}`, [scope]);
   if (loading || !data) return <PageSkeleton />;
 
   const { cost, recommendations, provenance } = data;

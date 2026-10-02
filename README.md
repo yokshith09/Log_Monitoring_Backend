@@ -1,10 +1,13 @@
 # Vantage
 
-**GCP Application Log Monitoring, Resource Usage & Cost Optimization Platform**
+**Cloud Log Monitoring, Resource Usage & Cost Optimization Platform**
 
-The product layer above GCP telemetry. It answers: is the application healthy,
-what is failing, what is slow, did a failure coincide with a resource spike, and
-where can we spend less.
+The product layer above cloud telemetry — provider-agnostic. It answers: is the
+application healthy, what is failing, what is slow, did a failure coincide with a
+resource spike, and where can we spend less.
+
+Connect several accounts across several providers and see them in one place, or
+narrow any view to one provider or one account.
 
 Its demo source application is [StaySync](https://github.com/yokshith09/StaySync),
 which emits structured logs in the Cloud Logging `jsonPayload` contract.
@@ -25,6 +28,23 @@ npm start              # build the UI and serve everything from :8090
 | Resources | CPU, memory, DB connections, instance count |
 | Cost | Daily spend, cost by service and SKU, anomalies, advisory recommendations |
 | Alerts | Threshold breaches grouped into incidents, with evidence |
+
+## Providers
+
+| Provider | Logs | Metrics | Cost | Status |
+|---|---|---|---|---|
+| Google Cloud | Cloud Logging | Cloud Monitoring | Billing export to BigQuery | Available |
+| Microsoft Azure | Azure Monitor Logs | Azure Monitor Metrics | Cost Management | Available |
+| AWS | CloudWatch Logs | CloudWatch Metrics | Cost Explorer | Planned |
+
+Every provider maps its own telemetry into one normalized record, and nothing
+downstream — aggregation, alerting, the UI — sees anything else. **Adding a
+provider is an entry in `api/providers.js`** declaring its severity vocabulary,
+field names and credential shape. No other file changes.
+
+A *connection* is one account on one provider. Several connections may share a
+provider; the scope selector narrows every view to all, to a provider, or to one
+account.
 
 ## Data sources
 

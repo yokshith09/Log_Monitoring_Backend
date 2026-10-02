@@ -8,8 +8,8 @@ import { fmtUsd } from "@/lib/viz";
  * sub-panel. §15 requires each one to carry its evidence and estimated impact,
  * and §10.6 requires that none of them act on their own.
  */
-export function Recommendations() {
-  const { data, loading } = useApi<any>("/api/recommendations", []);
+export function Recommendations({ scope }: { scope: string }) {
+  const { data, loading } = useApi<any>(`/api/recommendations?scope=${scope}`, [scope]);
   if (loading || !data) return <PageSkeleton />;
 
   return (

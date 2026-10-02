@@ -9,8 +9,8 @@ import { SERIES, fmtMs, fmtNum, fmtPct } from "@/lib/viz";
  * Each row is a drill-down target into that service's logs — step 3 of the
  * §12 journey.
  */
-export function Services({ hours }: { hours: number }) {
-  const { data, loading } = useApi<any>(`/api/services?hours=${hours}`, [hours]);
+export function Services({ hours, scope }: { hours: number; scope: string }) {
+  const { data, loading } = useApi<any>(`/api/services?hours=${hours}&scope=${scope}`, [hours, scope]);
   if (loading || !data) return <PageSkeleton />;
 
   const { services, freshness } = data;
