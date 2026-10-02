@@ -1,0 +1,13 @@
+{
+  "name": "vantage",
+  "private": true,
+  "type": "module",
+  "description": "GCP application log monitoring, resource usage and cost optimization platform",
+  "scripts": {
+    "api": "node api/server.js",
+    "web": "npm --prefix web run dev",
+    "dev": "node api/server.js & npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "start": "npm --prefix web run build && node api/server.js"
+  }
+}
