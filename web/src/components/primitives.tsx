@@ -2,13 +2,16 @@ import type { ReactNode } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { SEVERITY_COLOR, fmtNum } from "@/lib/viz";
+import { buildHash, type PageId } from "@/lib/nav";
 
 /* ------------------------------------------------------------- stat tile */
 
 /**
- * A single current value with a delta and an optional sparkline.
- * Per the dataviz form heuristic, a headline number is a stat tile — not a
- * one-bar bar chart.
+ * A single current value with a delta and optional sparkline.
+ *
+ * When `to` is supplied the whole tile becomes a link. §12's journey is a
+ * drill-down, so every headline number is a doorway into the view that
+ * explains it rather than a dead end.
  */
 export function StatTile({
   label,
@@ -17,7 +20,10 @@ export function StatTile({
   deltaLabel,
   goodDirection = "down",
   spark,
-  tone
+  tone,
+  to,
+  params,
+  caption
 }: {
   label: string;
   value: string;
@@ -26,48 +32,74 @@ export function StatTile({
   goodDirection?: "up" | "down";
   spark?: number[];
   tone?: "critical" | "warning" | "good";
+  to?: PageId;
+  params?: Record<string, string>;
+  caption?: string;
 }) {
   const improving = delta === undefined ? null : goodDirection === "down" ? delta < 0 : delta > 0;
   const flat = delta !== undefined && Math.abs(delta) < 1e-9;
+  const toneColor =
+    tone === "critical"
+      ? "var(--sev-error)"
+      : tone === "warning"
+        ? "var(--sev-warning)"
+        : tone === "good"
+          ? "var(--status-good)"
+          : undefined;
+
+  const body = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-muted-foreground text-[0.7rem] font-medium tracking-[0.08em] uppercase">{label}</p>
+        {to && (
+          <span
+            aria-hidden
+            className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+          >
+            →
+          </span>
+        )}
+      </div>
+
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <span className="text-[2rem] leading-none font-semibold" style={{ color: toneColor }}>
+          {value}
+        </span>
+        {spark && spark.length > 1 && <Sparkline points={spark} />}
+      </div>
+
+      {delta !== undefined && (
+        <p className="text-muted-foreground mt-2 flex items-center gap-1.5 text-xs">
+          <span
+            aria-hidden
+            style={{ color: flat ? "var(--muted-foreground)" : improving ? "var(--status-good)" : "var(--sev-error)" }}
+          >
+            {flat ? "→" : delta > 0 ? "↑" : "↓"}
+          </span>
+          <span className="tabular">{deltaLabel}</span>
+        </p>
+      )}
+      {caption && !delta && <p className="text-muted-foreground mt-2 text-xs">{caption}</p>}
+    </>
+  );
+
+  if (!to) {
+    return (
+      <Card className="bg-card border-border/60 gap-0 py-5">
+        <CardContent className="px-5">{body}</CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <Card className="bg-card border-border/60 gap-0 py-5">
-      <CardContent className="px-5">
-        <p className="text-muted-foreground text-[0.7rem] font-medium tracking-[0.08em] uppercase">{label}</p>
-
-        <div className="mt-2 flex items-end justify-between gap-3">
-          <span
-            className="text-[2rem] leading-none font-semibold"
-            style={{
-              color:
-                tone === "critical"
-                  ? "var(--sev-error)"
-                  : tone === "warning"
-                    ? "var(--sev-warning)"
-                    : tone === "good"
-                      ? "var(--status-good)"
-                      : undefined
-            }}
-          >
-            {value}
-          </span>
-          {spark && spark.length > 1 && <Sparkline points={spark} />}
-        </div>
-
-        {delta !== undefined && (
-          <p className="text-muted-foreground mt-2 flex items-center gap-1.5 text-xs">
-            {/* Direction is carried by the glyph and the word, never colour alone. */}
-            <span
-              aria-hidden
-              style={{ color: flat ? "var(--muted-foreground)" : improving ? "var(--status-good)" : "var(--sev-error)" }}
-            >
-              {flat ? "→" : delta > 0 ? "↑" : "↓"}
-            </span>
-            <span className="tabular">{deltaLabel}</span>
-          </p>
-        )}
-      </CardContent>
-    </Card>
+    <a
+      href={buildHash(to, params)}
+      className="group focus-visible:ring-ring rounded-xl focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:outline-none"
+    >
+      <Card className="bg-card border-border/60 hover:border-border hover:bg-secondary/30 h-full gap-0 py-5 transition-colors">
+        <CardContent className="px-5">{body}</CardContent>
+      </Card>
+    </a>
   );
 }
 
@@ -102,10 +134,32 @@ export function SeverityBadge({ severity, className }: { severity: string; class
         "inline-flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-[0.65rem] font-medium tracking-wide uppercase",
         className
       )}
-      style={{ color: SEVERITY_COLOR[severity], background: `color-mix(in oklab, ${SEVERITY_COLOR[severity]} 12%, transparent)` }}
+      style={{
+        color: SEVERITY_COLOR[severity],
+        background: `color-mix(in oklab, ${SEVERITY_COLOR[severity]} 12%, transparent)`
+      }}
     >
       <span aria-hidden className="size-1.5 rounded-full" style={{ background: SEVERITY_COLOR[severity] }} />
       {severity}
+    </span>
+  );
+}
+
+const GRADE_COLOR: Record<string, string> = {
+  healthy: "var(--status-good)",
+  watch: "var(--chart-4)",
+  degraded: "var(--sev-warning)",
+  critical: "var(--sev-error)"
+};
+
+export function GradeBadge({ grade }: { grade: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-[0.65rem] font-medium tracking-wide uppercase"
+      style={{ color: GRADE_COLOR[grade], background: `color-mix(in oklab, ${GRADE_COLOR[grade]} 12%, transparent)` }}
+    >
+      <span aria-hidden className="size-1.5 rounded-full" style={{ background: GRADE_COLOR[grade] }} />
+      {grade}
     </span>
   );
 }
@@ -119,24 +173,40 @@ export function StatusPill({ code }: { code: number }) {
   );
 }
 
+export { GRADE_COLOR };
+
 /* ------------------------------------------------------------- scaffolding */
 
 export function SectionHead({
   title,
   hint,
-  right
+  right,
+  to,
+  params
 }: {
   title: string;
   hint?: string;
   right?: ReactNode;
+  to?: PageId;
+  params?: Record<string, string>;
 }) {
   return (
     <div className="mb-4 flex items-end justify-between gap-4">
-      <div>
+      <div className="min-w-0">
         <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
         {hint && <p className="text-muted-foreground mt-0.5 text-xs">{hint}</p>}
       </div>
-      {right}
+      <div className="flex shrink-0 items-center gap-3">
+        {right}
+        {to && (
+          <a
+            href={buildHash(to, params)}
+            className="text-muted-foreground hover:text-foreground shrink-0 text-xs whitespace-nowrap transition-colors"
+          >
+            View all →
+          </a>
+        )}
+      </div>
     </div>
   );
 }
@@ -163,19 +233,35 @@ export function Legend({ items }: { items: { label: string; color: string }[] })
   );
 }
 
-export function EmptyState({ children }: { children: ReactNode }) {
+export function Metric({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
-    <div className="text-muted-foreground border-border/60 rounded-md border border-dashed px-6 py-10 text-center text-sm">
-      {children}
+    <div>
+      <p className="text-muted-foreground text-[0.7rem] tracking-[0.08em] uppercase">{label}</p>
+      <p className="tabular mt-1 text-lg font-semibold" style={{ color: tone }}>
+        {value}
+      </p>
     </div>
   );
 }
 
-export function Metric({ label, value }: { label: string; value: string }) {
+export function EmptyState({ children }: { children: ReactNode }) {
+  return <p className="text-muted-foreground py-8 text-center text-sm">{children}</p>;
+}
+
+/** Freshness is stated explicitly — §8 separates operational from billing cadence. */
+export function FreshnessNote({ freshness }: { freshness: any }) {
+  if (!freshness) return null;
   return (
-    <div>
-      <p className="text-muted-foreground text-[0.7rem] tracking-[0.08em] uppercase">{label}</p>
-      <p className="tabular mt-1 text-lg font-semibold">{value}</p>
+    <div className="text-muted-foreground flex flex-wrap items-center gap-x-5 gap-y-1 text-[0.7rem]">
+      <span className="flex items-center gap-1.5">
+        <span aria-hidden className="size-1.5 rounded-full" style={{ background: "var(--status-good)" }} />
+        Operational telemetry · {freshness.operational.cadence}
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span aria-hidden className="size-1.5 rounded-full" style={{ background: "var(--sev-warning)" }} />
+        Billing · {freshness.billing.cadence}, last export{" "}
+        {new Date(freshness.billing.lastExport).toLocaleString()}
+      </span>
     </div>
   );
 }

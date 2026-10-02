@@ -2,7 +2,7 @@ import { Legend, Metric, Panel, SectionHead, StatTile } from "@/components/primi
 import { CostBars, RankedBars, TrendArea, TrendLine } from "@/components/charts";
 import { PageSkeleton } from "./Overview";
 import { useApi } from "@/lib/api";
-import { ALERT_COLOR, SERIES, fmtMs, fmtNum, fmtPct, fmtUsd, relative } from "@/lib/viz";
+import { SERIES, fmtMs, fmtUsd } from "@/lib/viz";
 
 /* ------------------------------------------------------------ performance */
 
@@ -233,84 +233,3 @@ export function Cost() {
     </div>
   );
 }
-
-/* ----------------------------------------------------------------- alerts */
-
-export function Alerts({ hours }: { hours: number }) {
-  const { data, loading } = useApi<any>(`/api/alerts?hours=${hours}`, [hours]);
-  if (loading || !data) return <PageSkeleton />;
-
-  return (
-    <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatTile label="Active" value={String(data.active.length)} tone={data.active.length ? "critical" : "good"} />
-        <StatTile label="Resolved in window" value={String(data.recent.length)} />
-        <StatTile label="Total incidents" value={String(data.total)} />
-      </div>
-
-      {[
-        { title: "Active", hint: "Breaching now", rows: data.active },
-        { title: "Recent", hint: "Resolved — the threshold is no longer crossed", rows: data.recent }
-      ].map((group) => (
-        <Panel key={group.title}>
-          <SectionHead title={group.title} hint={group.hint} />
-          {group.rows.length === 0 ? (
-            <p className="text-muted-foreground py-6 text-center text-sm">Nothing here.</p>
-          ) : (
-            <ul className="space-y-3">
-              {group.rows.map((alert: any) => (
-                <li
-                  key={`${alert.ruleId}-${alert.firstSeen}`}
-                  className="border-border/60 rounded-md border p-4"
-                  style={{ borderLeftWidth: 3, borderLeftColor: ALERT_COLOR[alert.severity] }}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium">{alert.title}</p>
-                        <span
-                          className="rounded-sm px-1.5 py-0.5 text-[0.6rem] font-medium tracking-wide uppercase"
-                          style={{
-                            color: ALERT_COLOR[alert.severity],
-                            background: `color-mix(in oklab, ${ALERT_COLOR[alert.severity]} 14%, transparent)`
-                          }}
-                        >
-                          {alert.severity}
-                        </span>
-                      </div>
-                      <p className="text-muted-foreground mt-1 text-xs">{alert.description}</p>
-                    </div>
-                    <span className="text-muted-foreground tabular shrink-0 text-xs">
-                      {relative(alert.lastSeen)}
-                    </span>
-                  </div>
-
-                  <dl className="text-muted-foreground mt-3 flex flex-wrap gap-x-6 gap-y-1 text-[0.7rem]">
-                    <div className="flex gap-1.5">
-                      <dt>First seen</dt>
-                      <dd className="text-foreground tabular">{new Date(alert.firstSeen).toLocaleTimeString()}</dd>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <dt>Last seen</dt>
-                      <dd className="text-foreground tabular">{new Date(alert.lastSeen).toLocaleTimeString()}</dd>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <dt>Matching entries</dt>
-                      <dd className="text-foreground tabular">{fmtNum(alert.count)}</dd>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <dt>Evaluation window</dt>
-                      <dd className="text-foreground tabular">{alert.windowMinutes}m</dd>
-                    </div>
-                  </dl>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-      ))}
-    </div>
-  );
-}
-
-export { fmtPct };
