@@ -110,7 +110,7 @@ export function NotificationCentre({ notifications }: { notifications: Notificat
           aria-label={count === 0 ? "Notifications, none" : `Notifications, ${count} open`}
           title={count === 0 ? "Nothing to report" : `${count} open · ${critical} critical`}
           className={cn(
-            "border-border/70 text-muted-foreground hover:text-foreground relative grid size-[34px] place-items-center rounded-md border transition-colors",
+            "border-border text-muted-foreground hover:text-foreground relative grid size-[34px] place-items-center rounded-md border transition-colors",
             open && "bg-secondary text-foreground"
           )}
         >
@@ -137,8 +137,8 @@ export function NotificationCentre({ notifications }: { notifications: Notificat
         </button>
 
         {open && (
-          <div className="bg-popover border-border/70 absolute top-[calc(100%+6px)] right-0 z-50 max-h-[70vh] w-[min(26rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border shadow-xl">
-            <div className="border-border/60 bg-popover sticky top-0 flex items-center justify-between border-b px-4 py-2.5">
+          <div className="bg-popover border-border absolute top-[calc(100%+6px)] right-0 z-50 max-h-[70vh] w-[min(26rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border shadow-xl">
+            <div className="border-border bg-popover sticky top-0 flex items-center justify-between border-b px-4 py-2.5">
               <p className="text-sm font-semibold">Notifications</p>
               <span className="text-muted-foreground text-xs">
                 {count === 0 ? "nothing open" : `${count} open`}

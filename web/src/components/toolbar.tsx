@@ -43,7 +43,7 @@ export function RefreshButton({ onRefresh, busy }: { onRefresh: () => void; busy
       disabled={state === "working"}
       title="Refresh now (r)"
       className={cn(
-        "border-border/70 flex h-[34px] shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors disabled:cursor-wait",
+        "border-border flex h-[34px] shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors disabled:cursor-wait",
         state === "done"
           ? "text-foreground"
           : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -93,7 +93,7 @@ export function WindowPicker({ value, onChange }: { value: string; onChange: (id
         aria-expanded={open}
         title={active.title}
         className={cn(
-          "border-border/70 flex h-[34px] items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors",
+          "border-border flex h-[34px] items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors",
           open ? "bg-secondary text-foreground" : "text-foreground hover:bg-secondary"
         )}
       >
@@ -103,7 +103,7 @@ export function WindowPicker({ value, onChange }: { value: string; onChange: (id
       </button>
 
       {open && (
-        <div className="bg-popover border-border/70 absolute top-[calc(100%+4px)] right-0 z-50 w-56 rounded-lg border p-1 shadow-xl">
+        <div className="bg-popover border-border absolute top-[calc(100%+4px)] right-0 z-50 w-56 rounded-lg border p-1 shadow-xl">
           {WINDOWS.map((w, i) => (
             <button
               key={w.id}
@@ -123,7 +123,7 @@ export function WindowPicker({ value, onChange }: { value: string; onChange: (id
               <span className="text-muted-foreground tabular shrink-0" title="Auto-refresh interval">
                 {w.refreshMs / 1000}s
               </span>
-              <kbd className="border-border/70 text-muted-foreground shrink-0 rounded border px-1 font-mono text-[0.6rem]">
+              <kbd className="border-border text-muted-foreground shrink-0 rounded border px-1 font-mono text-[0.6rem]">
                 {i + 1}
               </kbd>
             </button>
@@ -141,7 +141,7 @@ export function LiveToggle({ live, seconds, onToggle }: { live: boolean; seconds
       aria-pressed={live}
       title={live ? `Auto-refreshing every ${seconds}s` : "Auto-refresh paused"}
       className={cn(
-        "border-border/70 flex h-[34px] shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors",
+        "border-border flex h-[34px] shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors",
         live ? "text-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
       )}
     >
@@ -166,7 +166,7 @@ export function ThemeToggle({ theme, onToggle }: { theme: string; onToggle: () =
       onClick={onToggle}
       title={`Switch to ${theme === "dark" ? "light" : "dark"} mode (t)`}
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-      className="border-border/70 text-muted-foreground hover:bg-secondary hover:text-foreground grid size-[34px] shrink-0 place-items-center rounded-md border transition-colors"
+      className="border-border text-muted-foreground hover:bg-secondary hover:text-foreground grid size-[34px] shrink-0 place-items-center rounded-md border transition-colors"
     >
       {theme === "dark" ? <Sun size={15} aria-hidden /> : <Moon size={15} aria-hidden />}
     </button>

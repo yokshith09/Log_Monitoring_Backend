@@ -31,7 +31,7 @@ const axisProps = {
 function ChartTooltip({ active, payload, label, formatter, labelFormatter }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="border-border/70 bg-popover rounded-md border px-3 py-2 shadow-lg">
+    <div className="border-border bg-popover rounded-md border px-3 py-2 shadow-lg">
       <p className="text-muted-foreground mb-1.5 text-[0.7rem] tracking-wide uppercase">
         {labelFormatter ? labelFormatter(label) : label}
       </p>

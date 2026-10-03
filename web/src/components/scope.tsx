@@ -35,7 +35,7 @@ export function ProviderMark({ provider, className }: { provider: string; classN
   return (
     <span
       aria-hidden
-      className={`border-border/70 bg-secondary text-muted-foreground grid size-5 shrink-0 place-items-center rounded border text-[0.6rem] font-bold ${className ?? ""}`}
+      className={`border-border bg-secondary text-muted-foreground grid size-5 shrink-0 place-items-center rounded border text-[0.6rem] font-bold ${className ?? ""}`}
       title={provider}
     >
       {letter}
@@ -46,7 +46,7 @@ export function ProviderMark({ provider, className }: { provider: string; classN
 export function ProviderBadge({ provider }: { provider: string }) {
   const label = provider === "gcp" ? "GCP" : provider === "azure" ? "Azure" : provider === "aws" ? "AWS" : provider;
   return (
-    <span className="border-border/70 text-muted-foreground rounded border px-1.5 py-0.5 text-[0.65rem] font-medium">
+    <span className="border-border text-muted-foreground rounded border px-1.5 py-0.5 text-[0.65rem] font-medium">
       {label}
     </span>
   );
@@ -66,7 +66,7 @@ export function ScopePicker({ scope, onScope }: { scope: string; onScope: (v: st
 
   return (
     <Select value={scope} onValueChange={(v) => onScope(v ?? "all")}>
-      <SelectTrigger className="bg-card border-border/70 h-9 w-[230px]" aria-label="Connection scope">
+      <SelectTrigger className="bg-card border-border h-9 w-[230px]" aria-label="Connection scope">
         <SelectValue placeholder="All connections" />
       </SelectTrigger>
       <SelectContent>

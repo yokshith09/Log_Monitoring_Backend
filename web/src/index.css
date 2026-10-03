@@ -150,7 +150,7 @@
    =========================================================================== */
 
 :root {
-  --radius: 0.5rem;
+  --radius: 0.375rem;
 
   /* ---- Light (default) ---- */
   --background: #eef0ec;
@@ -171,8 +171,8 @@
   --destructive: #c0392b;
   --destructive-foreground: #ffffff;
 
-  --border: rgb(22 37 31 / 0.18);
-  --input: rgb(22 37 31 / 0.22);
+  --border: rgb(22 37 31 / 0.20);
+  --input: rgb(22 37 31 / 0.26);
   --ring: #4e6239;
 
   --chart-1: #2a78d6;
@@ -183,9 +183,9 @@
   --chart-6: #008300;
 
   --sev-info: #566a62;
-  --sev-warning: #b07000;
-  --sev-error: #c0392b;
-  --status-good: #0a7d0a;
+  --sev-warning: #a35f00;
+  --sev-error: #b5281b;
+  --status-good: #07700a;
 
   --grid: rgb(26 43 37 / 0.08);
   --axis: rgb(26 43 37 / 0.18);
@@ -219,8 +219,8 @@
   --destructive: #d03b3b;
   --destructive-foreground: #ffffff;
 
-  --border: rgb(255 255 255 / 0.10);
-  --input: rgb(255 255 255 / 0.14);
+  --border: rgb(255 255 255 / 0.13);
+  --input: rgb(255 255 255 / 0.17);
   --ring: #8fae69;
 
   --chart-1: #3987e5;
@@ -231,9 +231,9 @@
   --chart-6: #008300;
 
   --sev-info: #898781;
-  --sev-warning: #fab219;
-  --sev-error: #d03b3b;
-  --status-good: #0ca30c;
+  --sev-warning: #ffc038;
+  --sev-error: #e24a4a;
+  --status-good: #22b822;
 
   --grid: #1e3a30;
   --axis: #2a4a3e;
@@ -285,9 +285,15 @@ body {
   color: var(--muted-foreground);
 }
 
-/* Light mode only: a hairline shadow so a white card still reads as raised
-   against the page. Dark mode gets its separation from the surface step and
-   would only look muddy with a shadow on top. */
-:root:not(.dark) [data-panel] {
-  box-shadow: 0 1px 2px rgb(22 37 31 / 0.05), 0 1px 1px rgb(22 37 31 / 0.03);
+/* Semi-flat: no drop shadows on surfaces. A 1px border at full opacity plus a
+   real step between page and card does the separation, which stays crisp at
+   any zoom and does not smear on a dense table. Elevation is reserved for
+   things that genuinely float — popovers, toasts, dialogs.
+
+   Tables inside a panel sit flush to its border, so the panel owns the edge
+   and rows do not draw a second one beside it. */
+[data-panel] > * > table,
+[data-panel] > table {
+  border-collapse: separate;
+  border-spacing: 0;
 }

@@ -63,6 +63,7 @@ export function buildActions({ alerts, services, health }) {
       id: `alert-${alert.ruleId}`,
       kind: "alert",
       priority: alertPriority(alert),
+      severity: alert.severity,
       active: alert.active,
       title: alert.title,
       detail:
@@ -95,6 +96,7 @@ export function buildActions({ alerts, services, health }) {
       id: `service-${service.name}`,
       kind: "service",
       priority: service.grade === "critical" ? "high" : "medium",
+      severity: service.grade === "critical" ? "critical" : "serious",
       active: true,
       title: `${service.name} is ${service.grade}`,
       detail: `${service.errors} of ${service.requests} requests failed (${(service.errorRate * 100).toFixed(1)}%), p95 ${Math.round(service.p95)}ms`,
@@ -116,6 +118,7 @@ export function buildActions({ alerts, services, health }) {
       id: "system-5xx",
       kind: "system",
       priority: health.serverErrorRate > 0.05 ? "critical" : "high",
+      severity: health.serverErrorRate > 0.05 ? "critical" : "serious",
       active: true,
       title: "Server errors above tolerance",
       detail: `${health.serverErrors} 5xx of ${health.requests} requests — ${(health.serverErrorRate * 100).toFixed(2)}%`,

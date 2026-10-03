@@ -74,8 +74,8 @@ export function ActionQueue({
   }
 
   return (
-    <div className="border-border/70 bg-card overflow-hidden rounded-lg border">
-      <div className="border-border/70 flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3">
+    <div className="border-border bg-card overflow-hidden rounded-lg border">
+      <div className="border-border flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3">
         <div className="flex items-center gap-2.5">
           <span
             aria-hidden
@@ -100,22 +100,33 @@ export function ActionQueue({
               >
                 <div className="flex items-start gap-3">
                   <span
-                    className="mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[0.65rem] font-semibold tracking-wide whitespace-nowrap uppercase"
+                    className="mt-px shrink-0 rounded px-1.5 py-[3px] text-[0.62rem] font-semibold tracking-wide whitespace-nowrap uppercase"
                     style={{
                       color: PRIORITY_COLOR[action.priority],
-                      background: `color-mix(in oklab, ${PRIORITY_COLOR[action.priority]} 13%, transparent)`
+                      background: `color-mix(in oklab, ${PRIORITY_COLOR[action.priority]} 14%, transparent)`
                     }}
                   >
                     {PRIORITY_LABEL[action.priority]}
                   </span>
 
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{action.title}</p>
-                    <p className="text-muted-foreground mt-0.5 text-sm">{action.detail}</p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="text-sm font-semibold">{action.title}</p>
+                      <SeverityTag severity={action.severity} />
+                      {action.affected.slice(0, 2).map((service) => (
+                        <span
+                          key={service}
+                          className="border-border text-muted-foreground rounded border px-1.5 py-px font-mono text-[0.65rem]"
+                        >
+                          {service}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-muted-foreground mt-0.5 text-xs">{action.detail}</p>
                   </div>
 
                   <div className="flex shrink-0 items-center gap-3">
-                    <span className="text-muted-foreground tabular text-xs">{relative(action.lastSeen)}</span>
+                    <span className="text-muted-foreground tabular text-[0.7rem]">{relative(action.lastSeen)}</span>
                     <span aria-hidden className="text-muted-foreground text-xs">
                       {open ? "▴" : "▾"}
                     </span>
@@ -124,41 +135,48 @@ export function ActionQueue({
               </button>
 
               {open && (
-                <div className="bg-secondary/25 border-border/60 space-y-3 border-t px-5 py-4">
-                  <div>
-                    <p className="text-muted-foreground mb-1 text-xs font-medium">Why this matters</p>
-                    <p className="text-sm">{action.why}</p>
-                  </div>
+                <div className="bg-secondary/30 border-border border-t px-5 py-3.5">
+                  <dl className="divide-border/50 divide-y text-sm">
+                    <Row label="Issue">{action.detail}</Row>
+                    <Row label="Severity">
+                      <span className="flex items-center gap-2">
+                        <SeverityTag severity={action.severity} />
+                        <span className="text-muted-foreground text-xs">
+                          {action.active ? "breaching now" : "not currently breaching"}
+                          {action.episodes && action.episodes > 1 ? ` · ${action.episodes} episodes` : ""}
+                        </span>
+                      </span>
+                    </Row>
+                    <Row label="Affected">
+                      {action.affected.length === 0 ? (
+                        <span className="text-muted-foreground">Whole application</span>
+                      ) : (
+                        <span className="flex flex-wrap gap-1.5">
+                          {action.affected.map((service) => (
+                            <a
+                              key={service}
+                              href={buildHash("logs", { service })}
+                              className="border-border bg-card hover:bg-secondary rounded border px-1.5 py-px font-mono text-xs transition-colors"
+                            >
+                              {service} &rarr;
+                            </a>
+                          ))}
+                        </span>
+                      )}
+                    </Row>
+                    <Row label="Likely cause">{action.why}</Row>
+                    <Row label="Do this">{action.firstStep}</Row>
+                    {action.verify && <Row label="Fixed when">{action.verify}</Row>}
+                  </dl>
 
-                  <div>
-                    <p className="text-muted-foreground mb-1 text-xs font-medium">Do this first</p>
-                    <p className="text-sm">{action.firstStep}</p>
-                  </div>
-
-                  {action.verify && (
-                    <div>
-                      <p className="text-muted-foreground mb-1 text-xs font-medium">You will know it worked when</p>
-                      <p className="text-sm">{action.verify}</p>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                  <div className="border-border/50 mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
                     <a
                       href={buildHash(action.link.page as PageId, action.link.params)}
-                      className="border-border/70 bg-card hover:bg-secondary rounded-md border px-2.5 py-1 text-xs font-medium transition-colors"
+                      className="border-border bg-card hover:bg-secondary rounded border px-2.5 py-1 text-xs font-medium transition-colors"
                     >
                       Investigate &rarr;
                     </a>
-                    {action.affected.map((service) => (
-                      <a
-                        key={service}
-                        href={buildHash("logs", { service })}
-                        className="border-border/70 bg-card hover:bg-secondary rounded-md border px-2.5 py-1 font-mono text-xs transition-colors"
-                      >
-                        {service}
-                      </a>
-                    ))}
-                    <span className="text-muted-foreground ml-auto text-xs">
+                    <span className="text-muted-foreground tabular ml-auto text-xs">
                       {fmtNum(action.count)} matching {action.count === 1 ? "entry" : "entries"}
                     </span>
                   </div>
@@ -169,6 +187,37 @@ export function ActionQueue({
         })}
       </ul>
     </div>
+  );
+}
+
+/** One labelled fact. Fixed label column, so the eye finds a field by position. */
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5 py-2 sm:flex-row sm:gap-5">
+      <dt className="text-muted-foreground w-[7.5rem] shrink-0 text-[0.68rem] font-medium tracking-[0.05em] uppercase sm:pt-px">
+        {label}
+      </dt>
+      <dd className="min-w-0 flex-1 leading-relaxed">{children}</dd>
+    </div>
+  );
+}
+
+const SEVERITY_TONE: Record<string, string> = {
+  critical: "var(--sev-error)",
+  serious: "var(--sev-warning)",
+  warning: "var(--chart-4)"
+};
+
+/** Severity always ships colour and word together. */
+function SeverityTag({ severity }: { severity: string }) {
+  const tone = SEVERITY_TONE[severity] ?? "var(--muted-foreground)";
+  return (
+    <span
+      className="shrink-0 rounded px-1.5 py-px text-[0.62rem] font-semibold tracking-wide uppercase"
+      style={{ color: tone, border: `1px solid color-mix(in oklab, ${tone} 45%, transparent)` }}
+    >
+      {severity}
+    </span>
   );
 }
 

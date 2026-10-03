@@ -31,7 +31,7 @@ export function Section({
   return (
     <section className={cn("scroll-mt-24", className)}>
       {/* Same rule as SectionHead: `description` is a tooltip, not a subtitle. */}
-      <header className="border-border/70 mb-3 flex flex-wrap items-end justify-between gap-3 border-b pb-2.5">
+      <header className="border-border mb-3 flex flex-wrap items-end justify-between gap-3 border-b pb-2.5">
         <div className="min-w-0">
           {eyebrow && <p className="eyebrow mb-0.5">{eyebrow}</p>}
           <h2 className="text-base leading-tight font-semibold tracking-tight" title={description}>
@@ -83,5 +83,5 @@ export function Explain({ children }: { children: ReactNode }) {
 }
 
 export function Divider() {
-  return <hr className="border-border/70 my-8 border-0 border-t" />;
+  return <hr className="border-border my-8 border-0 border-t" />;
 }

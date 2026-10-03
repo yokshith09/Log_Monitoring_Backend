@@ -98,7 +98,7 @@ function IncidentRow({
 
   return (
     <li
-      className="border-border/60 bg-card overflow-hidden rounded-lg border"
+      className="border-border bg-card overflow-hidden rounded-lg border"
       style={{ borderLeftWidth: 3, borderLeftColor: tone }}
     >
       <button
@@ -143,7 +143,7 @@ function IncidentRow({
       </button>
 
       {expanded && (
-        <div className="border-border/60 bg-secondary/25 space-y-5 border-t px-4 py-4">
+        <div className="border-border bg-secondary/25 space-y-5 border-t px-4 py-4">
           <Block title="What happened">
             <p className="text-sm leading-relaxed">{incident.summary}</p>
           </Block>
@@ -155,7 +155,7 @@ function IncidentRow({
             >
               <ol className="space-y-2.5">
                 {incident.causes.map((cause, i) => (
-                  <li key={cause.id} className="border-border/60 bg-card rounded-md border px-3 py-2.5">
+                  <li key={cause.id} className="border-border bg-card rounded-md border px-3 py-2.5">
                     <div className="flex items-start gap-2.5">
                       <span className="text-muted-foreground tabular mt-0.5 text-xs">{i + 1}</span>
                       <div className="min-w-0 flex-1">
@@ -240,7 +240,7 @@ function IncidentRow({
                   <a
                     key={svc}
                     href={buildHash("logs", { service: svc, scope })}
-                    className="border-border/60 bg-card hover:bg-secondary rounded border px-1.5 py-0.5 font-mono text-[0.68rem] transition-colors"
+                    className="border-border bg-card hover:bg-secondary rounded border px-1.5 py-0.5 font-mono text-[0.68rem] transition-colors"
                   >
                     {svc} →
                   </a>
@@ -253,7 +253,7 @@ function IncidentRow({
             <Block title={`All ${incident.episodeCount} episodes`}>
               <table className="w-full text-left text-xs">
                 <thead className="text-muted-foreground">
-                  <tr className="border-border/60 border-b">
+                  <tr className="border-border border-b">
                     <th className="py-1.5 font-medium">Started</th>
                     <th className="py-1.5 font-medium">Ended</th>
                     <th className="py-1.5 text-right font-medium">Duration</th>

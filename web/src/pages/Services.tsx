@@ -69,14 +69,14 @@ export function Services({ window: win, scope, refreshMs }: { window: string; sc
             <div className="flex flex-wrap gap-2">
               <a
                 href={buildHash("logs", { service: service.name })}
-                className="border-border/60 hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
+                className="border-border hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
               >
                 View logs →
               </a>
               {service.errors > 0 && (
                 <a
                   href={buildHash("logs", { service: service.name, severity: "ERROR" })}
-                  className="border-border/60 hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
+                  className="border-border hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
                   style={{ color: "var(--sev-error)" }}
                 >
                   View errors →
@@ -104,7 +104,7 @@ export function Services({ window: win, scope, refreshMs }: { window: string; sc
             ))}
           </div>
 
-          <div className="border-border/60 mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t pt-3 text-xs">
+          <div className="border-border mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t pt-3 text-xs">
             <span className="text-muted-foreground">
               5xx <span className="text-foreground tabular font-medium">{fmtNum(service.serverErrors)}</span>
             </span>
@@ -132,7 +132,7 @@ export function Services({ window: win, scope, refreshMs }: { window: string; sc
                   <a
                     key={route}
                     href={buildHash("logs", { service: service.name, route })}
-                    className="border-border/60 bg-secondary/40 hover:bg-secondary rounded px-1.5 py-0.5 font-mono text-[0.68rem] transition-colors"
+                    className="border-border bg-secondary/40 hover:bg-secondary rounded px-1.5 py-0.5 font-mono text-[0.68rem] transition-colors"
                   >
                     {route}
                   </a>

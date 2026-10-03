@@ -97,7 +97,7 @@ export default function App() {
       />
 
       <div className="pl-[60px] lg:pl-[var(--rail)]">
-        <header className="border-border/70 bg-background/90 sticky top-0 z-40 border-b backdrop-blur">
+        <header className="border-border bg-background/90 sticky top-0 z-40 border-b backdrop-blur">
           <div className="flex h-[57px] flex-wrap items-center gap-x-3 gap-y-2 px-5">
             <div className="min-w-0">
               <h1 className="truncate text-[0.95rem] leading-tight font-semibold tracking-tight">

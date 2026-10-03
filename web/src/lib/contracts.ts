@@ -90,6 +90,8 @@ export interface Action {
   id: string;
   kind: "alert" | "service" | "system";
   priority: Priority;
+  /** How bad the condition is. `priority` is how soon it needs doing. */
+  severity: "critical" | "serious" | "warning";
   active: boolean;
   title: string;
   detail: string;
@@ -99,6 +101,7 @@ export interface Action {
   affected: string[];
   count: number;
   lastSeen: number;
+  episodes?: number;
   link: { page: string; params: Record<string, string> };
 }
 

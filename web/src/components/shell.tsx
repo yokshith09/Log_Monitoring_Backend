@@ -53,7 +53,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "border-border/70 bg-sidebar fixed inset-y-0 left-0 z-50 flex flex-col border-r transition-[width] duration-200",
+        "border-border bg-sidebar fixed inset-y-0 left-0 z-50 flex flex-col border-r transition-[width] duration-200",
         collapsed ? "w-[60px]" : "w-[216px]"
       )}
     >
@@ -143,7 +143,7 @@ export function Sidebar({
         </ul>
       </nav>
 
-      <div className="border-border/60 flex shrink-0 items-center gap-1 border-t p-2">
+      <div className="border-border flex shrink-0 items-center gap-1 border-t p-2">
         <button
           onClick={onToggle}
           aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
@@ -168,7 +168,7 @@ function ShortcutHint() {
       >
         <KeyboardIcon size={14} aria-hidden className="shrink-0" />
         <span className="truncate">Shortcuts</span>
-        <kbd className="border-border/70 text-muted-foreground ml-auto shrink-0 rounded border px-1 font-mono text-[0.62rem]">
+        <kbd className="border-border text-muted-foreground ml-auto shrink-0 rounded border px-1 font-mono text-[0.62rem]">
           ?
         </kbd>
       </button>
@@ -204,10 +204,10 @@ export function ShortcutSheet({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/55 p-4" onClick={onClose}>
       <div
-        className="bg-popover border-border/70 w-full max-w-md rounded-lg border shadow-2xl"
+        className="bg-popover border-border w-full max-w-md rounded-lg border shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="border-border/60 flex items-center justify-between border-b px-5 py-3">
+        <div className="border-border flex items-center justify-between border-b px-5 py-3">
           <p className="text-sm font-semibold">Keyboard shortcuts</p>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm">
             Close
@@ -217,7 +217,7 @@ export function ShortcutSheet({ onClose }: { onClose: () => void }) {
           {SHORTCUTS.map((s) => (
             <li key={s.keys} className="flex items-center justify-between gap-6 py-2">
               <span className="text-sm">{s.does}</span>
-              <kbd className="border-border/70 bg-secondary/60 shrink-0 rounded border px-1.5 py-0.5 font-mono text-[0.7rem]">
+              <kbd className="border-border bg-secondary/60 shrink-0 rounded border px-1.5 py-0.5 font-mono text-[0.7rem]">
                 {s.keys}
               </kbd>
             </li>

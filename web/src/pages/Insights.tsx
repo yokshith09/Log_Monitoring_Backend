@@ -64,7 +64,7 @@ export function Insights({ window: win, scope, refreshMs }: { window: string; sc
             {data.anomalies.map((a) => (
               <li
                 key={`${a.metric}-${a.t}`}
-                className="border-border/60 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border px-3.5 py-2.5"
+                className="border-border flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border px-3.5 py-2.5"
                 style={{ borderLeftWidth: 3, borderLeftColor: Math.abs(a.z) > 6 ? "var(--sev-error)" : "var(--sev-warning)" }}
               >
                 <div className="min-w-0 flex-1">
@@ -118,7 +118,7 @@ function PatternTable({ patterns, scope }: { patterns: LogPattern[]; scope: stri
     <div className="-mx-0 overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead>
-          <tr className="border-border/60 text-muted-foreground border-b text-[0.68rem] tracking-[0.08em] uppercase">
+          <tr className="border-border text-muted-foreground border-b text-[0.68rem] tracking-[0.08em] uppercase">
             <th className="px-5 py-2.5 font-medium">Pattern</th>
             <th className="py-2.5 font-medium">Severity</th>
             <th className="py-2.5 font-medium">Service</th>

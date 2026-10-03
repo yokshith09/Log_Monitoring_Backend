@@ -51,7 +51,7 @@ export function Alerts({ window: win, scope, refreshMs }: { window: string; scop
                 return (
                   <li
                     key={id}
-                    className="border-border/60 overflow-hidden rounded-md border"
+                    className="border-border overflow-hidden rounded-md border"
                     style={{ borderLeftWidth: 3, borderLeftColor: ALERT_COLOR[alert.severity] }}
                   >
                     <button
@@ -104,7 +104,7 @@ export function Alerts({ window: win, scope, refreshMs }: { window: string; scop
                     </button>
 
                     {expanded && (
-                      <div className="border-border/60 bg-secondary/20 space-y-4 border-t p-4">
+                      <div className="border-border bg-secondary/20 space-y-4 border-t p-4">
                         <div>
                           <p className="text-muted-foreground mb-2 text-[0.65rem] tracking-[0.08em] uppercase">
                             What else was happening in this window
@@ -126,7 +126,7 @@ export function Alerts({ window: win, scope, refreshMs }: { window: string; scop
                                 <a
                                   key={svc}
                                   href={buildHash("logs", { service: svc })}
-                                  className="border-border/60 bg-card hover:bg-secondary rounded border px-1.5 py-0.5 font-mono text-[0.68rem] transition-colors"
+                                  className="border-border bg-card hover:bg-secondary rounded border px-1.5 py-0.5 font-mono text-[0.68rem] transition-colors"
                                 >
                                   {svc} &rarr;
                                 </a>
@@ -141,7 +141,7 @@ export function Alerts({ window: win, scope, refreshMs }: { window: string; scop
                                 <a
                                   key={e.event}
                                   href={buildHash("logs", { event: e.event })}
-                                  className="border-border/60 bg-card hover:bg-secondary rounded border px-1.5 py-0.5 font-mono text-[0.68rem] transition-colors"
+                                  className="border-border bg-card hover:bg-secondary rounded border px-1.5 py-0.5 font-mono text-[0.68rem] transition-colors"
                                 >
                                   {e.event} &times;{e.count}
                                 </a>
@@ -194,19 +194,19 @@ export function Alerts({ window: win, scope, refreshMs }: { window: string; scop
                               "logs",
                               alert.filter?.event ? { event: String(alert.filter.event) } : { severity: "ERROR" }
                             )}
-                            className="border-border/60 bg-card hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
+                            className="border-border bg-card hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
                           >
                             Open matching logs &rarr;
                           </a>
                           <a
                             href={buildHash("resources")}
-                            className="border-border/60 bg-card hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
+                            className="border-border bg-card hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
                           >
                             Check resources &rarr;
                           </a>
                           <a
                             href={buildHash("performance")}
-                            className="border-border/60 bg-card hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
+                            className="border-border bg-card hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
                           >
                             Check latency &rarr;
                           </a>

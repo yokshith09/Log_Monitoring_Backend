@@ -64,7 +64,7 @@ export function Performance({ window: win, scope, refreshMs }: { window: string;
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-border/60 text-muted-foreground border-b text-[0.68rem] tracking-[0.08em] uppercase">
+                <tr className="border-border text-muted-foreground border-b text-[0.68rem] tracking-[0.08em] uppercase">
                   <th className="px-5 py-2.5 font-medium">Route</th>
                   <th className="py-2.5 text-right font-medium">Requests</th>
                   <th className="py-2.5 text-right font-medium">Error rate</th>
@@ -246,7 +246,7 @@ export function Cost({ window: win, scope, refreshMs }: { window: string; scope:
         ) : (
           <ol className="space-y-2.5">
             {recommendations.map((rec, i) => (
-              <li key={rec.id} className="border-border/60 bg-card rounded-lg border px-4 py-3">
+              <li key={rec.id} className="border-border bg-card rounded-lg border px-4 py-3">
                 <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
                   <div className="flex min-w-0 gap-3">
                     <span className="text-muted-foreground tabular mt-0.5 text-sm">{i + 1}</span>

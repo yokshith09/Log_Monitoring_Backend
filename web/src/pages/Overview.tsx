@@ -1,5 +1,5 @@
-import { Figure, Section } from "@/components/layout";
-import { GRADE_COLOR, GRADE_LABEL, Legend, Panel, SeverityBadge, StatTile } from "@/components/primitives";
+import { Section } from "@/components/layout";
+import { Legend, Panel, SeverityBadge, StatTile } from "@/components/primitives";
 import { RankedBars, SeverityStack } from "@/components/charts";
 import { useApi } from "@/lib/api";
 import type { OverviewResponse } from "@/lib/contracts";
@@ -38,6 +38,7 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
         totalActions={actionCounts.total}
         freshness={freshness}
         scope={scope}
+        sparse={sparse}
       />
 
       {/* ------------------------------------------------------- ACTIONS --
@@ -45,46 +46,6 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
           top of this dashboard should still learn what needs doing. */}
       <ActionQueue actions={actions} counts={actionCounts} sparse={sparse} />
       </div>
-
-      {/* ---------------------------------------------------------- HEALTH */}
-      <Section
-        eyebrow="Right now"
-        title="Service health"
-      >
-        <Panel>
-          <div className="flex flex-wrap items-start justify-between gap-x-10 gap-y-5">
-            <div>
-              <div className="flex items-center gap-3">
-                <span aria-hidden className="size-3 rounded-full" style={{ background: GRADE_COLOR[health.grade] }} />
-                <span className="text-4xl leading-none font-semibold first-letter:uppercase">
-                  {GRADE_LABEL[health.grade] ?? health.grade}
-                </span>
-              </div>
-              <p className="text-muted-foreground mt-2.5 text-sm">
-                {fmtNum(health.requests)} requests &middot; {health.requestsPerMinute}/min
-                &middot; {health.uniqueServices} services &middot; {health.uniqueRoutes} routes
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-x-10 gap-y-4 sm:grid-cols-4">
-              <Figure
-                label="Availability"
-                value={fmtPct(health.availability, 2)}
-                help="Share of requests that did not fail on our side"
-                tone={sparse ? undefined : health.availability < 0.99 ? "var(--sev-error)" : undefined}
-              />
-              <Figure
-                label="Apdex"
-                value={health.apdex.toFixed(2)}
-                help="1.00 is everyone satisfied; below 0.80 needs work"
-                tone={sparse ? undefined : health.apdex < 0.8 ? "var(--sev-warning)" : undefined}
-              />
-              <Figure label="p95 latency" value={fmtMs(health.p95)} help="95% of requests were faster than this" />
-              <Figure label="p99 latency" value={fmtMs(health.p99)} help="The slow tail — your worst 1%" />
-            </div>
-          </div>
-        </Panel>
-      </Section>
 
       {/* --------------------------------------------------------- HEADLINE */}
       <Section
@@ -219,7 +180,7 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
               })}
             </ul>
 
-            <div className="border-border/60 mt-5 border-t pt-4">
+            <div className="border-border mt-5 border-t pt-4">
               <p className="text-muted-foreground mb-2.5 text-xs font-medium">By HTTP status family</p>
               <ul className="space-y-1">
                 {status.map((family: any) => (

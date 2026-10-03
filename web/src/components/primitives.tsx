@@ -87,7 +87,7 @@ export function StatTile({
 
   if (!to) {
     return (
-      <Card data-panel className="bg-card border-border/70 h-full gap-0 py-3.5">
+      <Card data-panel className="bg-card border-border h-full gap-0 py-3.5">
         <CardContent className="px-4">{body}</CardContent>
       </Card>
     );
@@ -100,7 +100,7 @@ export function StatTile({
     >
       <Card
         data-panel
-        className="bg-card border-border/70 hover:border-ring/40 hover:bg-secondary/30 h-full gap-0 py-3.5 transition-colors"
+        className="bg-card border-border hover:border-ring/40 hover:bg-secondary/30 h-full gap-0 py-3.5 transition-colors"
       >
         <CardContent className="px-4">{body}</CardContent>
       </Card>
@@ -235,7 +235,7 @@ export function SectionHead({
 
 export function Panel({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <Card data-panel className={cn("bg-card border-border/70 gap-0 py-5", className)}>
+    <Card data-panel className={cn("bg-card border-border gap-0 py-5", className)}>
       <CardContent className="px-5">{children}</CardContent>
     </Card>
   );

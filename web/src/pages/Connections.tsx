@@ -138,11 +138,11 @@ export function Connections() {
             ))}
           </ul>
 
-          <div className="border-border/60 mt-4 border-t pt-4">
+          <div className="border-border mt-4 border-t pt-4">
             <p className="text-muted-foreground mb-1.5 text-xs font-medium">
               How logs are queried ({provider.queryLanguage})
             </p>
-            <pre className="bg-secondary/50 border-border/60 overflow-x-auto rounded border p-3 font-mono text-xs leading-relaxed">
+            <pre className="bg-secondary/50 border-border overflow-x-auto rounded border p-3 font-mono text-xs leading-relaxed">
               {provider.exampleQuery}
             </pre>
           </div>

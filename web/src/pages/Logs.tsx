@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ALL, FilterChip, FilterSelect } from "@/components/filters";
 import { FreshnessNote, Legend, Panel, SectionHead, SeverityBadge, StatusPill } from "@/components/primitives";
 import { SeverityStack } from "@/components/charts";
 import { PageSkeleton } from "./Overview";
@@ -8,8 +8,6 @@ import { useApi } from "@/lib/api";
 import type { LogEntry, LogsResponse } from "@/lib/contracts";
 import { buildHash } from "@/lib/nav";
 import { SEVERITY_COLOR, fmtMs, fmtNum } from "@/lib/viz";
-
-const ALL = "ALL";
 
 export function Logs({ window: win, params, refreshMs }: { window: string; params: Record<string, string>; refreshMs: number }) {
   // Filters initialise from the URL, so a drill-down from Overview or Services
@@ -39,13 +37,13 @@ export function Logs({ window: win, params, refreshMs }: { window: string; param
   if (!data) return null;
 
   const active = [
-    severity !== ALL && { key: "severity", label: `severity: ${severity}`, clear: () => setSeverity(ALL) },
-    service !== ALL && { key: "service", label: `service: ${service}`, clear: () => setService(ALL) },
-    event !== ALL && { key: "event", label: `event: ${event}`, clear: () => setEvent(ALL) },
-    route !== ALL && { key: "route", label: `route: ${route}`, clear: () => setRoute(ALL) },
-    statusClass !== ALL && { key: "status", label: `status: ${statusClass}`, clear: () => setStatusClass(ALL) },
-    q && { key: "q", label: `search: ${q}`, clear: () => setQ("") }
-  ].filter(Boolean) as { key: string; label: string; clear: () => void }[];
+    severity !== ALL && { key: "severity", name: "Severity", value: severity, clear: () => setSeverity(ALL) },
+    service !== ALL && { key: "service", name: "Service", value: service, clear: () => setService(ALL) },
+    event !== ALL && { key: "event", name: "Event", value: event, clear: () => setEvent(ALL) },
+    route !== ALL && { key: "route", name: "Route", value: route, clear: () => setRoute(ALL) },
+    statusClass !== ALL && { key: "status", name: "Status", value: statusClass, clear: () => setStatusClass(ALL) },
+    q && { key: "q", name: "Search", value: q, clear: () => setQ("") }
+  ].filter(Boolean) as { key: string; name: string; value: string; clear: () => void }[];
 
   const clearAll = () => {
     setSeverity(ALL);
@@ -58,65 +56,58 @@ export function Logs({ window: win, params, refreshMs }: { window: string; param
   };
 
   const dropdowns = [
-    { value: severity, set: setSeverity, options: data.facets.severities, placeholder: "Severity", width: "w-[140px]" },
-    { value: service, set: setService, options: data.facets.services, placeholder: "Service", width: "w-[160px]" },
-    { value: statusClass, set: setStatusClass, options: data.facets.statusClasses, placeholder: "Status", width: "w-[130px]" },
-    { value: route, set: setRoute, options: data.facets.routes, placeholder: "Route", width: "w-[190px]" },
-    { value: event, set: setEvent, options: data.facets.events, placeholder: "Event", width: "w-[200px]" }
+    { label: "Severity", value: severity, set: setSeverity, options: data.facets.severities, width: "w-[146px]" },
+    { label: "Service", value: service, set: setService, options: data.facets.services, width: "w-[140px]" },
+    { label: "Status", value: statusClass, set: setStatusClass, options: data.facets.statusClasses, width: "w-[120px]" },
+    { label: "Route", value: route, set: setRoute, options: data.facets.routes, width: "w-[172px]" },
+    { label: "Event", value: event, set: setEvent, options: data.facets.events, width: "w-[180px]" }
   ];
 
   return (
     <div className="space-y-5">
-      {/* Filters in one row above the charts, per the interaction spec. */}
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2.5">
+      {/* One filter bar: search, then every facet, each stating its own field. */}
+      <div className="border-border bg-card rounded-lg border px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <Input
             data-search
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search event, message, route or request id…  ( / )"
-            className="bg-card border-border/60 h-9 max-w-xs"
+            placeholder="Search logs    /"
+            className="bg-background border-border h-8 w-[190px] text-xs"
           />
           {dropdowns.map((d) => (
-            <Select key={d.placeholder} value={d.value} onValueChange={(v) => d.set(v ?? ALL)}>
-              <SelectTrigger className={`bg-card border-border/60 h-9 ${d.width}`}>
-                <SelectValue placeholder={d.placeholder} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>All {d.placeholder.toLowerCase()}s</SelectItem>
-                {d.options.map((o: string) => (
-                  <SelectItem key={o} value={o}>
-                    {o}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <FilterSelect
+              key={d.label}
+              label={d.label}
+              value={d.value}
+              onChange={d.set}
+              options={d.options}
+              width={d.width}
+            />
           ))}
-          <span className="text-muted-foreground tabular ml-auto text-xs">
-            {fmtNum(data.total)} matching · showing {fmtNum(data.shown)}
+          <span className="tabular text-muted-foreground ml-auto shrink-0 text-xs whitespace-nowrap">
+            <span className="text-foreground font-semibold">{fmtNum(data.total)}</span> matching ·{" "}
+            {fmtNum(data.shown)} shown
           </span>
         </div>
 
         {active.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="border-border mt-2 flex flex-wrap items-center gap-1.5 border-t pt-2">
+            <span className="text-muted-foreground mr-0.5 text-[0.7rem]">Applied</span>
             {active.map((filter) => (
-              <button
-                key={filter.key}
-                onClick={filter.clear}
-                className="border-border/60 bg-secondary/60 hover:bg-secondary flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-mono text-[0.7rem] transition-colors"
-              >
-                {filter.label}
-                <span aria-hidden className="text-muted-foreground">×</span>
-              </button>
+              <FilterChip key={filter.key} label={filter.name} value={filter.value} onClear={filter.clear} />
             ))}
-            <button onClick={clearAll} className="text-muted-foreground hover:text-foreground text-xs underline">
+            <button
+              onClick={clearAll}
+              className="text-muted-foreground hover:text-foreground ml-1 text-[0.7rem] underline"
+            >
               Clear all
             </button>
           </div>
         )}
-
-        <FreshnessNote freshness={data.freshness} />
       </div>
+
+      <FreshnessNote freshness={data.freshness} />
 
       <Panel>
         <SectionHead
@@ -135,7 +126,7 @@ export function Logs({ window: win, params, refreshMs }: { window: string; param
         <div className="-mx-5 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-border/60 text-muted-foreground border-b text-[0.68rem] tracking-[0.08em] uppercase">
+              <tr className="border-border text-muted-foreground border-b text-[0.68rem] tracking-[0.08em] uppercase">
                 <th className="px-5 py-3 font-medium">Time</th>
                 <th className="py-3 font-medium">Severity</th>
                 <th className="py-3 font-medium">Event</th>
@@ -196,10 +187,10 @@ function LogDetail({ entry, onClose }: { entry: LogEntry; onClose: () => void })
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-4 sm:items-center" onClick={onClose}>
       <div
-        className="bg-popover border-border/70 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border shadow-2xl"
+        className="bg-popover border-border max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="bg-popover border-border/60 sticky top-0 flex items-center justify-between border-b px-5 py-3">
+        <div className="bg-popover border-border sticky top-0 flex items-center justify-between border-b px-5 py-3">
           <div className="flex items-center gap-3">
             <SeverityBadge severity={entry.severity} />
             <span className="font-mono text-sm">{entry.event}</span>
@@ -215,19 +206,19 @@ function LogDetail({ entry, onClose }: { entry: LogEntry; onClose: () => void })
           <div className="flex flex-wrap gap-2">
             <a
               href={buildHash("logs", { requestId: entry.requestId })}
-              className="border-border/60 hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
+              className="border-border hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
             >
               Trace this request →
             </a>
             <a
               href={buildHash("logs", { service: entry.component })}
-              className="border-border/60 hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
+              className="border-border hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
             >
               All {entry.component} logs →
             </a>
             <a
               href={buildHash("logs", { event: entry.event })}
-              className="border-border/60 hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
+              className="border-border hover:bg-secondary rounded-md border px-2.5 py-1 text-xs transition-colors"
             >
               All {entry.event} →
             </a>
@@ -255,7 +246,7 @@ function LogDetail({ entry, onClose }: { entry: LogEntry; onClose: () => void })
             <p className="text-muted-foreground mb-1.5 text-[0.68rem] tracking-[0.08em] uppercase">
               Raw jsonPayload
             </p>
-            <pre className="bg-background border-border/60 overflow-x-auto rounded border p-3 font-mono text-[0.7rem] leading-relaxed">
+            <pre className="bg-background border-border overflow-x-auto rounded border p-3 font-mono text-[0.7rem] leading-relaxed">
               {JSON.stringify(entry, null, 2)}
             </pre>
           </div>
