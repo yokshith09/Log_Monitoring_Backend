@@ -1,0 +1,20 @@
+# Keep the build context small: everything here is either rebuilt inside the
+# image, irrelevant to it, or must never reach it.
+.git
+.gitignore
+node_modules
+web/node_modules
+web/dist
+docs
+README.md
+Dockerfile
+.dockerignore
+cloudbuild.yaml
+
+# Secrets never enter an image layer. They come from Secret Manager at runtime.
+.env
+.env.*
+!.env.example
+
+.DS_Store
+*.local

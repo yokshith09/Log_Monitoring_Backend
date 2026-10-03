@@ -1,0 +1,110 @@
+# Cloud Build pipeline for Vantage.
+#
+# Build the image, push it to Artifact Registry, deploy it to Cloud Run. One
+# service, one revision per commit, tagged with the commit SHA so any deploy can
+# be traced back to the code that produced it and rolled back by tag.
+#
+# First-time setup is in docs/DEPLOY.md.
+
+substitutions:
+  _REGION: asia-south1
+  _SERVICE: vantage
+  _REPOSITORY: vantage
+  # The service account the RUNNING service uses. It needs read-only access to
+  # the project being monitored (roles/logging.viewer, roles/monitoring.viewer)
+  # and nothing else — Vantage never writes to the project it watches.
+  _RUNTIME_SA: vantage-run@${PROJECT_ID}.iam.gserviceaccount.com
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+images:
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${SHORT_SHA}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:latest
+
+steps:
+  # --------------------------------------------------------------------- build
+  # `latest` is pulled as a cache source so an unchanged dependency layer is
+  # reused. `|| exit 0` because the very first build has nothing to pull and a
+  # missing cache is not a failure.
+  - id: pull-cache
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        docker pull ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:latest || exit 0
+
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --cache-from=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:latest
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${SHORT_SHA}
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:latest
+      - .
+    waitFor: [pull-cache]
+
+  # ------------------------------------------------------------------- smoke
+  # Start the image and prove the service answers before anything is deployed.
+  # A container that builds but does not boot is the failure this catches, and
+  # catching it here costs seconds instead of a bad revision in production.
+  - id: smoke-test
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -e
+        docker run -d --name vantage-smoke -p 8080:8080 \
+          ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${SHORT_SHA}
+        for i in $(seq 1 20); do
+          if docker exec vantage-smoke node -e "fetch('http://localhost:8080/api/meta').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+            echo "service answered on attempt $i"
+            docker rm -f vantage-smoke
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "service did not answer within 20s"
+        docker logs vantage-smoke
+        docker rm -f vantage-smoke
+        exit 1
+    waitFor: [build]
+
+  # -------------------------------------------------------------------- deploy
+  # --allow-unauthenticated makes the dashboard publicly reachable, which is what
+  # a demo needs. To lock it to named accounts instead, drop that flag and grant
+  # roles/run.invoker to the people who should see it.
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}:${SHORT_SHA}
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      - --service-account=${_RUNTIME_SA}
+      - --port=8080
+      - --cpu=1
+      - --memory=512Mi
+      # Scale to zero between demos: an idle service then costs nothing, and the
+      # whole deployment stays inside the Cloud Run free tier.
+      - --min-instances=0
+      - --max-instances=4
+      # One instance serves many concurrent requests — the work is reading
+      # cached arrays, not blocking IO — so a low concurrency cap would multiply
+      # instances for no reason.
+      - --concurrency=80
+      - --timeout=60s
+      - --set-env-vars=NODE_ENV=production,VANTAGE_SOURCE=sample
+      - --revision-suffix=${SHORT_SHA}
+    waitFor: [smoke-test]
+
+timeout: 900s
