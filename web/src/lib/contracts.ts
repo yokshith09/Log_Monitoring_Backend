@@ -162,6 +162,11 @@ export interface OverviewResponse {
   services: ServiceHealth[];
   alerts: Alert[];
   activeAlertCount: number;
+  incidents: Incident[];
+  anomalies: Anomaly[];
+  notifications: Notification[];
+  patterns: LogPattern[];
+  analysis: AnalysisMode;
   actions: Action[];
   actionCounts: { critical: number; high: number; total: number };
   summaries: { reliability: SectionSummary; services: SectionSummary };
@@ -243,4 +248,157 @@ export interface ResourcesResponse {
   }[];
   peaks: Record<string, number>;
   means: Record<string, number>;
+}
+
+/* ------------------------------------------------------- analysis layer */
+
+export interface LogPattern {
+  pattern: string;
+  count: number;
+  share: number;
+  severity: Severity;
+  topService: string | null;
+  topRoute: string | null;
+  topStatus: number;
+  concentration: number;
+  services: string[];
+  firstSeen: number;
+  lastSeen: number;
+  medianLatency: number;
+  example: string;
+  exampleRequestId: string;
+}
+
+export interface Anomaly {
+  t: number;
+  metric: string;
+  label: string;
+  value: number;
+  baseline: number;
+  z: number;
+  direction: "spike" | "drop";
+  multiple: number | null;
+  buckets: number;
+  durationMinutes: number;
+  description: string;
+}
+
+export interface Cause {
+  id: string;
+  claim: string;
+  evidence: string;
+  confidence: "high" | "medium" | "low";
+  weight: number;
+  link: { page: string; params: Record<string, string> };
+}
+
+export interface Episode {
+  firstSeen: number;
+  lastSeen: number;
+  durationMinutes: number;
+  peak: number;
+  count: number;
+  active: boolean;
+  description: string;
+}
+
+export interface Incident {
+  id: string;
+  ruleId: string;
+  title: string;
+  severity: "critical" | "serious" | "warning";
+  windowMinutes: number;
+  episodes: Episode[];
+  episodeCount: number;
+  /** Minutes actually spent breaching — the sum of the episodes. */
+  durationMinutes: number;
+  /** Minutes from the first breach to the last, gaps included. */
+  spanMinutes: number;
+  firstSeen: number;
+  lastSeen: number;
+  count: number;
+  peak: number;
+  active: boolean;
+  description: string;
+  summary: string;
+  causes: Cause[];
+  patterns: LogPattern[];
+  remediation: { likelyCause: string; actions: string[]; verify: string | null } | null;
+  correlation: {
+    requests: number;
+    errorRate: number;
+    p95: number;
+    peakCpu: number | null;
+    peakConnections: number | null;
+    affectedServices: string[];
+    topEvents: { event: string; count: number }[];
+  };
+}
+
+export interface Notification {
+  id: string;
+  kind: "incident" | "anomaly" | "service" | "system";
+  severity: "critical" | "warning" | "info";
+  title: string;
+  body: string;
+  at: number;
+  link: { page: string; params: Record<string, string> };
+}
+
+export interface AnalysisMode {
+  engine: string;
+  model: string | null;
+  note: string;
+}
+
+export interface IncidentsResponse {
+  range: Range;
+  freshness: Freshness;
+  analysis: AnalysisMode;
+  active: Incident[];
+  recent: Incident[];
+  total: number;
+  episodeTotal: number;
+  bySeverity: { severity: string; count: number }[];
+}
+
+export interface InsightsResponse {
+  range: Range;
+  freshness: Freshness;
+  analysis: AnalysisMode;
+  patterns: LogPattern[];
+  allPatterns: LogPattern[];
+  anomalies: Anomaly[];
+}
+
+export interface NotificationsResponse {
+  range: Range;
+  notifications: Notification[];
+}
+
+export interface CostRecommendation {
+  id: string;
+  title: string;
+  reason: string;
+  impact: number;
+  confidence: string;
+  evidence: string[];
+  action: string;
+}
+
+export interface CostResponse {
+  freshness: Freshness;
+  cost: {
+    days: number;
+    total: number;
+    dailyMean: number;
+    projectedMonthly: number;
+    costPerThousandRequests: number;
+    trend: { date: string; cost: number }[];
+    byService: { service: string; cost: number }[];
+    bySku: { sku: string; cost: number }[];
+    anomalies: { date: string; cost: number; multiple: number }[];
+  };
+  recommendations: CostRecommendation[];
+  provenance: { source: string; note: string; schema: string };
 }

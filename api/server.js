@@ -5,6 +5,8 @@ import { logEntries, resourceSeries, costRows, sourceInfo, memo } from "./source
 import { listConnections, resolveScope, applyScope } from "./connections.js";
 import { providerList } from "./providers.js";
 import { buildActions, sectionSummary } from "./actions.js";
+import { buildIncidents, buildNotifications } from "./incidents.js";
+import { analysisMode, detectAnomalies, logPatterns } from "./ai.js";
 import {
   overview,
   severityBreakdown,
@@ -135,6 +137,8 @@ const routes = {
     const serviceRows = serviceHealth(entries, r);
     const healthRow = healthMetrics(entries, r);
     const actions = buildActions({ alerts, services: serviceRows, health: healthRow });
+    const incidentRows = buildIncidents(rawAlerts, { entries, resources });
+    const anomalyRows = detectAnomalies({ timeline: agg.timeline, resources, range: r });
 
     return {
       range: r,
@@ -152,6 +156,22 @@ const routes = {
       components: byComponent(entries, r),
       alerts: alerts.slice(0, 4),
       activeAlertCount: alerts.filter((a) => a.active).length,
+      incidents: incidentRows.slice(0, 5),
+      anomalies: anomalyRows,
+      notifications: buildNotifications({
+        incidents: incidentRows,
+        anomalies: anomalyRows,
+        services: serviceRows,
+        health: healthRow
+      }),
+      patterns: logPatterns(
+        entries.filter((e) => {
+          const t = e.t ?? Date.parse(e.timestamp);
+          return t >= r.fromMs && t <= r.toMs;
+        }),
+        { limit: 5 }
+      ),
+      analysis: analysisMode(),
       // Action-first: what needs a person, ranked.
       actions,
       actionCounts: {
@@ -165,7 +185,7 @@ const routes = {
         reliability: sectionSummary(actions, ["alert", "system"]),
         services: sectionSummary(actions, ["service"])
       },
-      performance: performance(entries, r).slowestRoutes.slice(0, 5),
+      performance: performance(entries, r).slowestRoutes.slice(0, 6),
       resourceLatest: resourceSeries().at(-1) ?? {},
       byConnection: listConnections().map((c) => {
         const rows = entries.filter((e) => e.connectionId === c.id);
@@ -270,13 +290,13 @@ const routes = {
     };
   },
 
-  "/api/recommendations": () => {
+  "/api/recommendations": (url) => {
     const cost = costSummary(scopedCost(url));
+    const recs = recommendations(cost, resourceSeries(), scopedEntries(url));
     return {
       freshness: freshness(),
-      recommendations: recommendations(cost, resourceSeries(), scopedEntries(url)),
-      totalEstimatedSaving:
-        Math.round(recommendations(cost, resourceSeries(), scopedEntries(url)).reduce((s, r) => s + r.impact, 0) * 100) / 100,
+      recommendations: recs,
+      totalEstimatedSaving: Math.round(recs.reduce((sum, rec) => sum + rec.impact, 0) * 100) / 100,
       provenance: { source: "sample", note: "Cost inputs are sample data; the rules and evidence are real." }
     };
   },
@@ -285,23 +305,62 @@ const routes = {
     const r = range(url);
     const entries = scopedEntries(url);
     const resources = resourceSeries();
-    const alerts = evaluateAlerts(entries, r).map((alert) => ({
-      ...alert,
-      remediation: REMEDIATION[alert.ruleId] ?? null,
-      // What else was happening in the same window — §12 step 4.
-      correlation: correlate(entries, resources, { fromMs: alert.firstSeen, toMs: alert.lastSeen })
-    }));
+    // Grouped into incidents, not listed as raw breach records. One bad
+    // afternoon is one incident with eight episodes, not eight alerts.
+    const incidents = buildIncidents(evaluateAlerts(entries, r), { entries, resources });
 
     return {
       range: r,
       freshness: freshness(),
-      active: alerts.filter((a) => a.active),
-      recent: alerts.filter((a) => !a.active),
-      total: alerts.length,
+      analysis: analysisMode(),
+      active: incidents.filter((i) => i.active),
+      recent: incidents.filter((i) => !i.active),
+      total: incidents.length,
+      episodeTotal: incidents.reduce((sum, i) => sum + i.episodeCount, 0),
       bySeverity: ["critical", "serious", "warning"].map((s) => ({
         severity: s,
-        count: alerts.filter((a) => a.severity === s).length
+        count: incidents.filter((i) => i.severity === s).length
       }))
+    };
+  },
+
+  /** Notifications only — cheap enough to poll on its own cadence. */
+  "/api/notifications": (url) => {
+    const r = range(url);
+    const entries = scopedEntries(url);
+    const resources = resourceSeries();
+    const agg = overview(entries, r);
+    const incidents = buildIncidents(evaluateAlerts(entries, r), { entries, resources });
+    const anomalyRows = detectAnomalies({ timeline: agg.timeline, resources, range: r });
+
+    return {
+      range: r,
+      notifications: buildNotifications({
+        incidents,
+        anomalies: anomalyRows,
+        services: serviceHealth(entries, r),
+        health: healthMetrics(entries, r)
+      })
+    };
+  },
+
+  /** Pattern detection and anomaly detection, as their own view. */
+  "/api/insights": (url) => {
+    const r = range(url);
+    const entries = scopedEntries(url);
+    const resources = resourceSeries();
+    const windowed = entries.filter((e) => {
+      const t = e.t ?? Date.parse(e.timestamp);
+      return t >= r.fromMs && t <= r.toMs;
+    });
+
+    return {
+      range: r,
+      freshness: freshness(),
+      analysis: analysisMode(),
+      patterns: logPatterns(windowed, { limit: 12 }),
+      allPatterns: logPatterns(windowed, { limit: 12, severities: null, minCount: 5 }),
+      anomalies: detectAnomalies({ timeline: overview(entries, r).timeline, resources, range: r })
     };
   },
 

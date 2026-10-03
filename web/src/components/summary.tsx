@@ -80,10 +80,10 @@ export function ProjectSummary({
           ? "Nothing crossing a threshold right now; these fired earlier in the window"
           : "Rules currently crossing their threshold",
       tone: criticalAlertCount > 0 ? "var(--sev-error)" : activeAlertCount > 0 ? "var(--sev-warning)" : "var(--status-good)",
-      to: buildHash("alerts", scope === "all" ? {} : { scope })
+      to: buildHash("incidents", scope === "all" ? {} : { scope })
     },
     {
-      label: "Act now",
+      label: "Fix now",
       value: String(actNowCount),
       help: "Actions that should not wait for the next working day",
       tone: actNowCount > 0 ? "var(--sev-error)" : "var(--status-good)"

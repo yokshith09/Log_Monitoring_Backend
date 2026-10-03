@@ -32,13 +32,54 @@ listing the same rule four times is the alert fatigue §20 warns about.
 
 | View | Shows |
 |---|---|
-| Overview | Project summary, action queue, health grade, error rate, p95/p99, severity split, service watchlist, recent alerts |
+| Overview | Project summary, action queue, health grade, error rate, p95/p99, severity split, service watchlist, open incidents |
+| Incidents | Thresholds crossed, grouped per rule, with summary, ranked causes and the fix |
+| Insights | Repeating log patterns and statistical anomalies |
 | Services | Per-workload health, grades, failure concentration |
 | Logs | Filterable log table with drill-down to the raw `jsonPayload` |
-| Performance | Latency percentiles, slowest routes, throughput vs failures |
+| Performance | Latency percentiles, every route, throughput vs failures |
 | Resources | CPU, memory, DB connections, instance count |
-| Alerts | Threshold breaches grouped into incidents, with evidence and remediation |
+| Cost | Daily spend, cost by service and SKU, anomalies, ranked saving actions |
 | Setup | The connected cloud project, what is monitored, and what access it needs |
+
+## Incidents, not alerts
+
+A threshold rule re-evaluates continuously, so one bad afternoon produces dozens of
+breach records for a single problem. Those are folded into **one incident per rule**,
+with the individual breaches kept inside as episodes. Opening an incident answers
+three questions in order: what happened, why it probably happened, and what to do.
+
+Two numbers that are easy to confuse are reported separately: **breaching for** is
+the time actually spent over the threshold; **across** is the span from the first
+breach to the last. Three ten-minute episodes across an afternoon is 30 minutes of
+breaching, not five hours.
+
+## Notifications
+
+A bell in the header carries everything open: incidents breaching now, anomalies no
+rule covers yet, and services that degraded without tripping anything. Anything new
+since the last poll also raises a toast.
+
+Notification ids are **stable for as long as the condition lasts**, keyed on the rule
+rather than a timestamp. The window slides with every poll, so a timestamp-keyed id
+re-announces the same live incident every few seconds.
+
+## The analysis layer
+
+Five jobs, all deterministic, all showing their evidence:
+
+| | What it does |
+|---|---|
+| **Pattern detection** | Collapses messages to a template by masking ids, numbers and quoted strings, so one failure seen 300 times is one row rather than 300 |
+| **Anomaly detection** | Modified z-score against the window's own median and MAD. A mean-based detector is dragged upward by the spike it exists to catch; a median is not. Consecutive anomalous buckets collapse into one event |
+| **Root-cause analysis** | Ranked hypotheses, each with the evidence behind it and a confidence derived from that evidence. Stated as correlation, because that is what it is |
+| **Incident summarization** | One paragraph: what, to what, how long, how big, most likely cause |
+| **Remediation** | Per-rule steps with a verification condition, so "fixed" is checkable |
+
+There is **no model in the loop**, and the UI says so. An on-call engineer needs the
+same answer twice, and a finding that fired must be able to show what fired it.
+`narrate()` in `api/ai.js` is the seam where a language model can reword findings when
+a key is configured — it changes the words, never the findings.
 
 ## Time windows
 
@@ -65,8 +106,10 @@ indistinguishable from "we saw nothing at all".
 api/
   source.js      the telemetry seam — server.js imports ONLY this
   data.js        sample generator (StaySync's exact log contract)
-  analytics.js   windowing, bucketing, percentiles
+  analytics.js   windowing, bucketing, percentiles, threshold rules
   insights.js    health grades, apdex, correlation, remediation catalogue
+  ai.js          patterns, anomalies, root cause, incident summaries
+  incidents.js   episode grouping and the notification feed
   actions.js     the ranked action queue
   providers.js   provider registry (severity vocabulary, field names, credentials)
   connections.js the connected accounts

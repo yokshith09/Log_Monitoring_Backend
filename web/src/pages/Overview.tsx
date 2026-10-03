@@ -15,7 +15,7 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
   const {
     health, deltas, sparkline, timeline, severity, status, topEvents,
     services, alerts, activeAlertCount, performance, resourceLatest,
-    actions, actionCounts, summaries, byConnection, freshness
+    actions, actionCounts, summaries, byConnection, freshness, incidents
   } = data;
 
   // Too little traffic in the window for a rate to mean anything.
@@ -46,7 +46,6 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
       <Section
         eyebrow="Right now"
         title="Service health"
-        description="One judgement from three signals: how often requests fail, how slow they are, and how many succeed at all. Everything below explains this verdict."
       >
         <Panel>
           <div className="flex flex-wrap items-start justify-between gap-x-10 gap-y-5">
@@ -87,7 +86,6 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
       <Section
         eyebrow="Key numbers"
         title="At a glance"
-        description="Each tile opens the view that explains it. Arrows compare the second half of the window against the first."
       >
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatTile
@@ -129,7 +127,7 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
             label="Active alerts"
             value={String(activeAlertCount)}
             tone={activeAlertCount > 0 ? "critical" : "good"}
-            to="alerts"
+            to="incidents"
             params={{ scope }}
             caption={activeAlertCount === 0 ? "No threshold is currently crossed" : "Thresholds crossed right now"}
           />
@@ -140,7 +138,6 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
       <Section
         eyebrow="Reliability"
         title="What is failing"
-        description="Server errors are ours to fix; client errors mean callers are sending something we rejected. They need different responses, so they are counted separately."
         right={<SummaryChip summary={summaries.reliability} />}
       >
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -242,7 +239,6 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
       <Section
         eyebrow="Breakdown"
         title="Health by service"
-        description="Which workload is responsible. A grade combines its error rate, latency and availability."
         right={
           <>
             <SummaryChip summary={summaries.services} />
@@ -259,7 +255,6 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
       <Section
         eyebrow="Detail"
         title="Failures and slow paths"
-        description="The specific events and endpoints worth looking at first."
       >
         <div className="grid gap-3 lg:grid-cols-2">
           <Panel>
@@ -308,48 +303,65 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
         </div>
       </Section>
 
-      {/* ---------------------------------------------------------- ALERTS */}
+      {/* ------------------------------------------------------- INCIDENTS */}
       <Section
         eyebrow="Attention"
-        title="Recent alerts"
-        description="A threshold being crossed, not every individual event. Open one for its likely cause and suggested fix."
+        title="Open incidents"
         right={
-          <a href={buildHash("alerts", { scope })} className="text-muted-foreground hover:text-foreground text-xs">
-            All alerts &rarr;
+          <a href={buildHash("incidents", { scope })} className="text-muted-foreground hover:text-foreground text-xs">
+            All incidents &rarr;
           </a>
         }
       >
-        <Panel>
-          {alerts.length === 0 ? (
-            <p className="text-muted-foreground py-6 text-center text-sm">
+        <Panel className="py-0">
+          {incidents.length === 0 ? (
+            <p className="text-muted-foreground py-10 text-center text-sm">
               No threshold was crossed in this window.
             </p>
           ) : (
-            <ul className="divide-border/60 divide-y">
-              {alerts.map((alert: any) => (
-                <li key={`${alert.ruleId}-${alert.firstSeen}`}>
+            <ul className="divide-border/50 divide-y">
+              {incidents.map((incident) => (
+                <li key={incident.id}>
                   <a
-                    href={buildHash("alerts", { scope })}
-                    className="hover:bg-secondary/40 -mx-2 flex items-center gap-4 rounded px-2 py-3 transition-colors"
+                    href={buildHash("incidents", { scope })}
+                    className="hover:bg-secondary/40 flex items-start gap-4 px-5 py-3.5 transition-colors"
                   >
                     <span
                       aria-hidden
-                      className="size-2 shrink-0 rounded-full"
-                      style={{ background: ALERT_COLOR[alert.severity] }}
+                      className="mt-1.5 size-2 shrink-0 rounded-full"
+                      style={{ background: ALERT_COLOR[incident.severity] }}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{alert.title}</p>
-                      <p className="text-muted-foreground truncate text-xs">{alert.description}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate text-sm font-medium">{incident.title}</p>
+                        <span
+                          className="shrink-0 text-[0.62rem] font-medium tracking-wide uppercase"
+                          style={{ color: ALERT_COLOR[incident.severity] }}
+                        >
+                          {incident.active ? `${incident.severity} · breaching` : incident.severity}
+                        </span>
+                        {incident.episodeCount > 1 && (
+                          <span className="bg-secondary text-muted-foreground shrink-0 rounded-sm px-1.5 py-0.5 text-[0.6rem]">
+                            {incident.episodeCount} episodes
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-muted-foreground mt-0.5 truncate text-xs">{incident.description}</p>
+                      {/* The leading cause is the single most useful thing to
+                          put on a summary row — it is what the reader opens
+                          the incident to find. */}
+                      {incident.causes[0] && (
+                        <p className="text-muted-foreground mt-1 truncate text-xs">
+                          <span className="font-medium">Likely:</span> {incident.causes[0].claim}
+                        </p>
+                      )}
                     </div>
-                    <span
-                      className="shrink-0 text-xs font-medium tracking-wide uppercase"
-                      style={{ color: ALERT_COLOR[alert.severity] }}
-                    >
-                      {alert.severity}
-                    </span>
-                    <span className="text-muted-foreground tabular w-20 shrink-0 text-right text-xs">
-                      {relative(alert.lastSeen)}
-                    </span>
+                    <div className="w-24 shrink-0 text-right">
+                      <p className="text-muted-foreground tabular text-xs">{relative(incident.lastSeen)}</p>
+                      <p className="text-muted-foreground tabular text-[0.65rem]">
+                        {incident.durationMinutes}m breaching
+                      </p>
+                    </div>
                   </a>
                 </li>
               ))}
@@ -357,6 +369,7 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
           )}
         </Panel>
       </Section>
+
     </div>
   );
 }

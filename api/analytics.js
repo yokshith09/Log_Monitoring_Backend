@@ -199,8 +199,9 @@ export function performance(entries, { fromMs, toMs, bucketMs }) {
         avg: Math.round(r.samples.reduce((a, b) => a + b, 0) / r.samples.length),
         errorRate: r.count === 0 ? 0 : r.errors / r.count
       }))
-      .sort((a, b) => b.p95 - a.p95)
-      .slice(0, 8),
+      // Every route in the window. The overview counts them all, so capping
+      // here made the dashboard claim 11 routes and show 8.
+      .sort((a, b) => b.p95 - a.p95),
     // Volume against failures over time: the correlation §10.2 asks for.
     throughput: buckets.map(([at, group]) => ({
       t: at,

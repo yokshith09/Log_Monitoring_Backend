@@ -15,7 +15,10 @@ export type PageId =
   | "logs"
   | "performance"
   | "resources"
-  | "alerts"
+  | "alerts" /* legacy hash, still routes */
+  | "incidents"
+  | "insights"
+  | "cost"
   | "connections";
 
 export interface Route {
@@ -55,29 +58,21 @@ export function useRoute() {
 }
 
 /**
- * Navigation is grouped by the question each page answers, rather than being a
- * flat list of nine items. Operate = what is happening now;
- * Setup = what is connected.
+ * One flat list, ordered by how often a page is opened. An earlier version
+ * grouped these under headings; the headings cost a row of chrome and told the
+ * reader nothing the page names did not already say.
  */
-export const NAV_GROUPS: { group: string; items: { id: PageId; label: string; hint: string }[] }[] = [
-  {
-    group: "Operate",
-    items: [
-      { id: "overview", label: "Overview", hint: "Health, errors and alerts at a glance" },
-      { id: "services", label: "Services", hint: "Health broken down per workload" },
-      { id: "logs", label: "Logs", hint: "Search and filter every log entry" },
-      { id: "performance", label: "Performance", hint: "Latency percentiles and throughput" },
-      { id: "resources", label: "Resources", hint: "CPU, memory, instances and connections" },
-      { id: "alerts", label: "Alerts", hint: "Thresholds crossed, with suggested fixes" }
-    ]
-  },
-  {
-    group: "Setup",
-    items: [{ id: "connections", label: "Setup", hint: "The cloud project feeding this dashboard" }]
-  }
+export const NAV: { id: PageId; label: string; hint: string }[] = [
+  { id: "overview", label: "Overview", hint: "Health, errors and open incidents at a glance" },
+  { id: "incidents", label: "Incidents", hint: "Thresholds crossed, grouped by cause, with the fix" },
+  { id: "insights", label: "Insights", hint: "Repeating log patterns and statistical anomalies" },
+  { id: "services", label: "Services", hint: "Health broken down per workload" },
+  { id: "logs", label: "Logs", hint: "Search and filter every log entry" },
+  { id: "performance", label: "Performance", hint: "Latency percentiles, routes and throughput" },
+  { id: "resources", label: "Resources", hint: "CPU, memory, instances and connections" },
+  { id: "cost", label: "Cost", hint: "Spend by service, trends, and where to save" },
+  { id: "connections", label: "Setup", hint: "The cloud project feeding this dashboard" }
 ];
-
-export const NAV = NAV_GROUPS.flatMap((g) => g.items);
 
 /**
  * Time windows. `query` is passed straight to the API.

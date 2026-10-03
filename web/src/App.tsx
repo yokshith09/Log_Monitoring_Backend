@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Overview } from "@/pages/Overview";
 import { Services } from "@/pages/Services";
 import { Logs } from "@/pages/Logs";
-import { Alerts } from "@/pages/Alerts";
+import { Incidents } from "@/pages/Incidents";
+import { Insights } from "@/pages/Insights";
 import { Connections } from "@/pages/Connections";
-import { Performance, Resources } from "@/pages/Rest";
+import { Cost, Performance, Resources } from "@/pages/Rest";
 import { ScopePicker } from "@/components/scope";
-import { DEFAULT_WINDOW, NAV, NAV_GROUPS, WINDOWS, buildHash, useRoute } from "@/lib/nav";
+import { NotificationCentre } from "@/components/notifications";
+import { useApi } from "@/lib/api";
+import type { NotificationsResponse } from "@/lib/contracts";
+import { DEFAULT_WINDOW, NAV, WINDOWS, buildHash, useRoute } from "@/lib/nav";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -15,18 +19,32 @@ export default function App() {
   const { theme, toggle } = useTheme();
   const [windowId, setWindowId] = useState(DEFAULT_WINDOW.id);
   const [live, setLive] = useState(true);
+  // Bumping this changes every page's fetch key, which is how the manual
+  // refresh button forces a reload without a full remount.
+  const [nonce, setNonce] = useState(0);
   const activeWindow = WINDOWS.find((w) => w.id === windowId) ?? DEFAULT_WINDOW;
   // Polling cadence follows the window: a 1-minute view refreshes every 5s,
   // a 24-hour view every 2 minutes. 0 disables it.
   const refreshMs = live ? activeWindow.refreshMs : 0;
 
-  // Scope lives in the URL so a drill-down keeps the account it came from.
   const scope = params.scope ?? "all";
   const setScope = (next: string) => {
     location.hash = buildHash(page, { ...params, scope: next });
   };
 
+  const refresh = useCallback(() => setNonce((n) => n + 1), []);
+
+  // Notifications poll on their own cadence, independent of the page in view,
+  // so the bell is current whichever page the reader is on. Never faster than
+  // 15s: a notification arriving 10 seconds late costs nothing.
+  const { data: notifications } = useApi<NotificationsResponse>(
+    `/api/notifications?${activeWindow.query}&scope=${scope}&n=${nonce}`,
+    [activeWindow.query, scope, nonce],
+    live ? Math.max(15_000, activeWindow.refreshMs) : 0
+  );
+
   const current = NAV.find((n) => n.id === page) ?? NAV[0];
+  const pageProps = { window: `${activeWindow.query}&n=${nonce}`, scope, refreshMs };
 
   return (
     <div className="min-h-full">
@@ -78,22 +96,45 @@ export default function App() {
               ))}
             </div>
 
-            <button
-              onClick={() => setLive((v) => !v)}
-              aria-pressed={live}
-              title={live ? `Refreshing every ${activeWindow.refreshMs / 1000}s` : "Auto-refresh paused"}
-              className={cn(
-                "border-border/70 flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors",
-                live ? "text-foreground bg-secondary" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <span
-                aria-hidden
-                className={cn("size-1.5 rounded-full", live && "animate-pulse")}
-                style={{ background: live ? "var(--status-good)" : "var(--muted-foreground)" }}
-              />
-              {live ? `Live · ${activeWindow.refreshMs / 1000}s` : "Paused"}
-            </button>
+            {/* Auto-refresh and manual refresh as one control group: the pause
+                button says what the cadence is, the arrow overrides it. */}
+            <div className="border-border/70 flex items-center rounded-md border">
+              <button
+                onClick={() => setLive((v) => !v)}
+                aria-pressed={live}
+                title={live ? `Refreshing every ${activeWindow.refreshMs / 1000}s` : "Auto-refresh paused"}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-l-[5px] px-2.5 py-1.5 text-xs transition-colors",
+                  live ? "text-foreground bg-secondary" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span
+                  aria-hidden
+                  className={cn("size-1.5 rounded-full", live && "animate-pulse")}
+                  style={{ background: live ? "var(--status-good)" : "var(--muted-foreground)" }}
+                />
+                {live ? `Live · ${activeWindow.refreshMs / 1000}s` : "Paused"}
+              </button>
+              <span aria-hidden className="bg-border/70 h-5 w-px" />
+              <button
+                onClick={refresh}
+                title="Refresh now"
+                aria-label="Refresh now"
+                className="text-muted-foreground hover:text-foreground hover:bg-secondary rounded-r-[5px] px-2 py-1.5 transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path
+                    d="M20 11a8 8 0 1 0-.6 4M20 4v7h-7"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <NotificationCentre notifications={notifications?.notifications ?? []} />
 
             <button
               onClick={toggle}
@@ -125,60 +166,47 @@ export default function App() {
           </div>
         </div>
 
-        {/* Nav grouped by the question each page answers. */}
         <nav className="border-border/50 border-t" aria-label="Sections">
-          <div className="mx-auto flex max-w-[1500px] items-stretch gap-5 overflow-x-auto px-6">
-            {NAV_GROUPS.map((group) => (
-              <div key={group.group} className="flex items-center gap-0.5">
-                {/* A one-item group would just repeat its own item's label. */}
-                {group.items.length > 1 && (
-                  <span className="text-muted-foreground/70 mr-1 shrink-0 text-[0.6rem] font-semibold tracking-[0.1em] uppercase">
-                    {group.group}
-                  </span>
+          <div className="mx-auto flex max-w-[1500px] items-stretch gap-0.5 overflow-x-auto px-6">
+            {NAV.map((item) => (
+              <a
+                key={item.id}
+                href={buildHash(item.id, scope === "all" ? {} : { scope })}
+                aria-current={page === item.id ? "page" : undefined}
+                title={item.hint}
+                className={cn(
+                  "relative shrink-0 px-3 py-2.5 text-[0.82rem] whitespace-nowrap transition-colors",
+                  page === item.id ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"
                 )}
-                {group.items.map((item) => (
-                  <a
-                    key={item.id}
-                    href={buildHash(item.id, scope === "all" ? {} : { scope })}
-                    aria-current={page === item.id ? "page" : undefined}
-                    title={item.hint}
-                    className={cn(
-                      "relative shrink-0 px-2.5 py-2.5 text-[0.82rem] whitespace-nowrap transition-colors",
-                      page === item.id
-                        ? "text-foreground font-medium"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {item.label}
-                    {page === item.id && (
-                      <span
-                        aria-hidden
-                        className="absolute inset-x-2.5 -bottom-px h-0.5 rounded-full"
-                        style={{ background: "var(--primary)" }}
-                      />
-                    )}
-                  </a>
-                ))}
-              </div>
+              >
+                {item.label}
+                {page === item.id && (
+                  <span
+                    aria-hidden
+                    className="absolute inset-x-3 -bottom-px h-0.5 rounded-full"
+                    style={{ background: "var(--primary)" }}
+                  />
+                )}
+              </a>
             ))}
           </div>
         </nav>
       </header>
 
       <main className="mx-auto max-w-[1500px] px-6 py-7">
-        <div className="mb-7">
+        <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight">{current.label}</h1>
           <p className="text-muted-foreground mt-1 text-sm">{current.hint}</p>
         </div>
 
-        {/* No remount on refresh: the hook swaps data in place, so charts keep
-            their state instead of being torn down every poll. */}
-        {page === "overview" && <Overview window={activeWindow.query} scope={scope} refreshMs={refreshMs} />}
-        {page === "services" && <Services window={activeWindow.query} scope={scope} refreshMs={refreshMs} />}
-        {page === "logs" && <Logs window={activeWindow.query} params={params} refreshMs={refreshMs} />}
-        {page === "performance" && <Performance window={activeWindow.query} scope={scope} refreshMs={refreshMs} />}
-        {page === "resources" && <Resources window={activeWindow.query} scope={scope} refreshMs={refreshMs} />}
-        {page === "alerts" && <Alerts window={activeWindow.query} scope={scope} refreshMs={refreshMs} />}
+        {page === "overview" && <Overview {...pageProps} />}
+        {page === "incidents" && <Incidents {...pageProps} />}
+        {page === "insights" && <Insights {...pageProps} />}
+        {page === "services" && <Services {...pageProps} />}
+        {page === "logs" && <Logs window={pageProps.window} params={params} refreshMs={refreshMs} />}
+        {page === "performance" && <Performance {...pageProps} />}
+        {page === "resources" && <Resources {...pageProps} />}
+        {page === "cost" && <Cost {...pageProps} />}
         {page === "connections" && <Connections />}
       </main>
     </div>

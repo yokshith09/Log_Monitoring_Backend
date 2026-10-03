@@ -11,20 +11,26 @@ const PRIORITY_COLOR: Record<Priority, string> = {
   low: "var(--muted-foreground)"
 };
 
-const PRIORITY_LABEL: Record<Priority, string> = {
-  critical: "Act now",
-  high: "Act soon",
-  medium: "Look into",
-  low: "Monitor"
+/**
+ * Priority as a deadline, not a severity word.
+ *
+ * "Act now" and "Act soon" sound like the same instruction at two volumes and
+ * leave the reader to work out the difference. A timeframe does not.
+ */
+export const PRIORITY_LABEL: Record<Priority, string> = {
+  critical: "Fix now",
+  high: "Fix today",
+  medium: "Investigate",
+  low: "Keep watching"
 };
 
 /**
  * The action queue — the first thing on the page.
  *
  * Each row answers three questions in order: what is wrong, why it matters,
- * and what to do first. Priority is phrased as an instruction ("Act now")
- * rather than a severity word, because the reader's question is what to do,
- * not how to categorise it.
+ * and what to do first. Priority is phrased as a deadline ("Fix now",
+ * "Fix today") rather than a severity word, because the reader's question is
+ * when this has to be dealt with, not how to categorise it.
  */
 export function ActionQueue({
   actions,
@@ -83,12 +89,12 @@ export function ActionQueue({
         <div className="flex items-center gap-3 text-xs">
           {counts.critical > 0 && (
             <span style={{ color: "var(--sev-error)" }}>
-              <span className="tabular font-semibold">{counts.critical}</span> act now
+              <span className="tabular font-semibold">{counts.critical}</span> to fix now
             </span>
           )}
           {counts.high > 0 && (
             <span style={{ color: "var(--sev-warning)" }}>
-              <span className="tabular font-semibold">{counts.high}</span> act soon
+              <span className="tabular font-semibold">{counts.high}</span> to fix today
             </span>
           )}
         </div>

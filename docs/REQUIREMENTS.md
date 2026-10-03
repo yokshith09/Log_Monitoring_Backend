@@ -54,25 +54,39 @@ actual requirement. The metrics are sample data on the same seam as logs.
 
 ### 10.5 Cost monitoring & optimization
 
-**Not covered — removed by request.** The cost and recommendation views were
-taken out of the UI for this round. `api/cost-data.js` retains the per-service,
-per-SKU catalogue modelled on the BigQuery billing export's schema, and the
-freshness model that distinguishes a daily billing export from near-real-time
-logs is still in `api/server.js`. Restoring the views is wiring, not rebuilding.
+**Met, on sample billing data.** The Cost view shows daily spend, cost by service
+and by SKU, projected monthly, cost per thousand requests, and days flagged by the
+1.5x anomaly rule. Recommendations are ranked by estimated saving, each with the
+evidence behind it and a plain-language action; nothing acts on a resource.
 
-This is the one deliberate gap, and it also removes §25 criteria 8 and 9.
+Provenance is stated at the top of the view, and the freshness model distinguishes
+the daily billing export from near-real-time logs throughout. `api/cost-data.js`
+is modelled on the BigQuery billing export's schema, so enabling the live export is
+a source change, not a rewrite.
 
 ### 10.6 AI / automation layer
 
-**Met for the mandatory part.** Collection, classification, aggregation,
-thresholding and alerting all run without manual intervention.
+**Met.** The mandatory half — collect, classify, aggregate, threshold and alert
+without manual intervention — runs end to end.
 
-The optional layer — plain-language explanation of what a signal means and what
-to do — is implemented as a **rule-based remediation catalogue**, not an LLM.
-Each action states why it matters, the first step, and the verification
-condition. Stating this plainly: there is no model in the loop. The clause marks
-this layer optional and explicitly warns against autonomous mutation of cloud
-resources; nothing here mutates anything.
+The optional analysis layer the clause describes is implemented in full, in
+`api/ai.js` and `api/incidents.js`:
+
+| Clause wording | Implementation |
+|---|---|
+| "summarize an incident" | One paragraph per incident: what, to what, how long, how big, most likely cause |
+| "group semantically similar errors" | Template-based pattern detection, masking ids, numbers and quoted strings |
+| "explain likely relationships among signals" | Ranked root-cause hypotheses, each carrying its evidence and a derived confidence |
+| "translate a recommendation into a plain-language action" | Per-rule remediation steps with a verification condition |
+| (beyond the clause) | Anomaly detection by modified z-score against the window's own median |
+
+**There is no model in the loop, and the UI says so.** This is a deliberate
+choice, not a shortfall: an on-call engineer needs the same answer twice, and a
+finding must be able to show the evidence that produced it. `narrate()` is the
+seam where a language model can reword findings when a key is configured; it can
+change the wording, never the findings. The clause marks this layer optional and
+warns against autonomous mutation of cloud resources — nothing here mutates
+anything.
 
 ---
 
@@ -84,9 +98,9 @@ resources; nothing here mutates anything.
 | Log analytics | **Met** |
 | Performance | **Met** |
 | Resource usage | **Met** |
-| Cost | **Not covered** — removed by request (§10.5) |
-| Recommendations | **Not covered** — removed by request (§10.5) |
-| Alerts / incidents | **Met** — timestamp, condition, affected service, supporting context |
+| Cost | **Met** — spend by service and SKU, trend, anomalies, unit economics |
+| Recommendations | **Met** — ranked by estimated saving, with evidence and a plain action |
+| Alerts / incidents | **Met** — grouped per rule, with timestamps, condition, affected services, episodes, cause analysis and remediation |
 
 ---
 
@@ -99,8 +113,8 @@ resources; nothing here mutates anything.
 | 3. Drills into the affected service and filters logs | **Met** — every tile, row and chart element is a link that carries its filter |
 | 4. Related latency or resource signals for the same period | **Met** |
 | 5. An alert explains the threshold crossed | **Met** |
-| 6. Resource/cost view shows coincidence | **Partial** — resource, yes; cost, removed |
-| 7. Recommendation view | **Not covered** — removed |
+| 6. Resource/cost view shows coincidence | **Met** — resource conditions appear inside the incident; cost has its own view |
+| 7. Recommendation view | **Met** |
 
 ---
 
@@ -113,20 +127,37 @@ resources; nothing here mutates anything.
 | 3 | Product retrieves log data programmatically | **Partial** — the full query path exists against the seam; the Cloud Logging adapter is a stub |
 | 4 | At least one live/near-live view plus historical trends | **Met** — 1m live through 24h historical |
 | 5 | Known error scenarios detected and displayed | **Met** — 5xx spikes, payment failures, stock conflicts, credential stuffing, latency breaches |
-| 6 | One alert threshold triggered deterministically in the demo | **Met** — the sample incident timeline fires the 5xx rule every run |
+| 6 | One alert threshold triggered deterministically in the demo | **Met** — the sample source carries an ongoing incident, so the error-rate rule is breaching at any moment the dashboard is opened. Previously every sample incident was historical and nothing was ever firing at demo time |
 | 7 | Resource metrics visible | **Met** |
-| 8 | Cost data with freshness labelling | **Not covered** — removed by request |
-| 9 | One optimization suggestion demonstrated | **Not covered** — removed by request |
+| 8 | Cost data with freshness labelling | **Met on sample data** — schema-accurate, provenance stated in the UI; live when the export is enabled |
+| 9 | One optimization suggestion demonstrated | **Met** — ranked, each with evidence and estimated impact |
 | 10 | Outputs understandable without reading raw telemetry | **Met** — this is what the action queue and the plain-language captions exist for |
 
-**4 of 10 fully met, 2 partial, 2 blocked on deployment, 2 removed by request.**
+**7 of 10 fully met, 1 partial, 2 blocked on deployment.**
+
+The two blocked criteria and the partial one all depend on the same thing: GCP
+deployment plus the Cloud Logging adapter. Nothing else is outstanding.
 
 ---
 
 ## What would close the remaining gaps
 
-1. **Deployment** (criteria 1, 2, and the rest of 3) — StaySync to Cloud Run,
-   then the Cloud Logging adapter in `api/source.js`. Blocked on GCP billing;
-   §26 anticipates this and names mentor-provided credits as the route.
-2. **Cost views** (criteria 8, 9) — restore the two removed pages. The data
-   model, the freshness distinction and the rule set are all still in the repo.
+**Deployment** (criteria 1, 2, and the rest of 3) — StaySync to Cloud Run, then the
+Cloud Logging adapter behind `api/source.js`. Blocked on GCP billing; §26 anticipates
+exactly this and names mentor-provided credits as the route.
+
+Nothing else in the product is outstanding against the document.
+
+## §20 Risks: alert fatigue
+
+The document names alert fatigue as a specific risk, so it is worth stating what was
+done about it rather than leaving it implicit:
+
+- Alerts group into **one incident per rule**, not one row per breach.
+- Actions group the same way, with the episode count preserved.
+- Consecutive anomalous buckets collapse into **one anomaly event**, not seven.
+- Notification ids are stable while a condition lasts, so nothing re-announces itself.
+- Rate-derived findings are **suppressed below 20 requests** — one failure in eight is
+  not a 12.5% error rate worth paging anyone over.
+- Priority is a deadline ("Fix now", "Fix today"), not a severity word, so the queue
+  sorts by when something has to be dealt with rather than by how alarming it sounds.

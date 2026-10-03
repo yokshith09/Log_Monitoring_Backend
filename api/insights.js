@@ -10,6 +10,22 @@ import { tsOf } from "./analytics.js";
 
 const APDEX_TARGET_MS = 200;
 
+/** Services carrying a real share of the window's failures, worst first. */
+function rankedAffected(window) {
+  const counts = new Map();
+  for (const e of window) {
+    if (e.severity === "INFO") continue;
+    counts.set(e.component, (counts.get(e.component) ?? 0) + 1);
+  }
+  const total = [...counts.values()].reduce((a, b) => a + b, 0);
+  if (total === 0) return [];
+  return [...counts.entries()]
+    .filter(([, n]) => n / total >= 0.1)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([name]) => name);
+}
+
 const pct = (part, whole) => (whole === 0 ? 0 : part / whole);
 
 function percentile(values, p) {
@@ -273,7 +289,11 @@ export function correlate(entries, resources, { fromMs, toMs }) {
     p95: percentile(latencies, 95),
     peakCpu: cpu.length ? Math.max(...cpu) : null,
     peakConnections: connections.length ? Math.max(...connections) : null,
-    affectedServices: [...new Set(window.filter((e) => e.severity !== "INFO").map((e) => e.component))],
+    // Ranked by how much of the window's failure each service actually owns,
+    // and cut at anything under 10%. Listing every service that logged a single
+    // warning over a 5-hour window names the whole application as "affected",
+    // which tells the reader nothing and hides the one service that broke.
+    affectedServices: rankedAffected(window),
     topEvents: [...window.filter((e) => e.severity !== "INFO").reduce((map, e) => {
       map.set(e.event, (map.get(e.event) ?? 0) + 1);
       return map;
