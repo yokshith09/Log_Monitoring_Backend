@@ -86,18 +86,6 @@ export function ActionQueue({
             {active.length} {active.length === 1 ? "thing needs" : "things need"} attention
           </h2>
         </div>
-        <div className="flex items-center gap-3 text-xs">
-          {counts.critical > 0 && (
-            <span style={{ color: "var(--sev-error)" }}>
-              <span className="tabular font-semibold">{counts.critical}</span> to fix now
-            </span>
-          )}
-          {counts.high > 0 && (
-            <span style={{ color: "var(--sev-warning)" }}>
-              <span className="tabular font-semibold">{counts.high}</span> to fix today
-            </span>
-          )}
-        </div>
       </div>
 
       <ul className="divide-border/60 divide-y">

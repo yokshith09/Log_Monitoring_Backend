@@ -23,26 +23,28 @@ export function Insights({ window: win, scope, refreshMs }: { window: string; sc
     <div className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
-          label="Distinct patterns"
+          label="Distinct failure patterns"
           value={String(data.patterns.length)}
-          caption="Failure messages grouped by template"
+          caption="Messages with ids and numbers masked, then grouped"
         />
         <StatTile
-          label="Most frequent"
+          label="Top pattern"
           value={dominant ? fmtNum(dominant.count) : "0"}
           tone={dominant && dominant.severity === "ERROR" ? "critical" : undefined}
-          caption={dominant ? `${dominant.topService} · ${dominant.pattern.slice(0, 40)}` : "Nothing repeating"}
+          caption={dominant ? `${dominant.topService} · ${dominant.topRoute ?? "all routes"}` : "Nothing repeating"}
+          to="logs"
+          params={dominant?.topService ? { service: dominant.topService, scope } : { scope }}
+        />
+        <StatTile
+          label="Concentration"
+          value={dominant ? fmtPct(dominant.share) : "—"}
+          caption="Share of this window carried by the top pattern alone"
         />
         <StatTile
           label="Anomalies"
           value={String(data.anomalies.length)}
           tone={data.anomalies.length > 0 ? "warning" : "good"}
-          caption="Buckets far outside this window's own normal"
-        />
-        <StatTile
-          label="Analysis"
-          value="Deterministic"
-          caption="Same window, same findings, every time"
+          caption="Intervals more than 3.5σ from the window median"
         />
       </div>
 
@@ -50,8 +52,8 @@ export function Insights({ window: win, scope, refreshMs }: { window: string; sc
 
       <Panel>
         <SectionHead
-          title="Anomaly detection"
-          hint="Modified z-score against this window's median — a single spike cannot hide itself the way it can in a mean"
+          title="Anomalies · median-based, 3.5σ"
+          hint="Modified z-score against the window's own median and MAD, not its mean. A mean is dragged upward by the very spike it should be catching; a median is not. Consecutive flagged intervals collapse into one event."
         />
         {data.anomalies.length === 0 ? (
           <p className="text-muted-foreground py-8 text-center text-sm">
@@ -67,14 +69,15 @@ export function Insights({ window: win, scope, refreshMs }: { window: string; sc
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm">{a.description}</p>
-                  <p className="text-muted-foreground mt-0.5 text-xs">
-                    {new Date(a.t).toLocaleTimeString()} · {relative(a.t)}
-                    {a.buckets > 1 && ` · ${a.buckets} consecutive buckets`}
+                  <p className="text-muted-foreground mt-0.5 font-mono text-xs">
+                    {new Date(a.t).toLocaleTimeString()} · median {Math.round(a.baseline)} · peak{" "}
+                    {Math.round(a.value)}
+                    {a.buckets > 1 && ` · ${a.buckets} intervals`}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="shrink-0 text-right">
                   <p className="tabular text-sm font-semibold">{Math.abs(a.z).toFixed(1)}σ</p>
-                  <p className="text-muted-foreground text-[0.65rem]">deviation</p>
+                  <p className="text-muted-foreground text-[0.65rem]">from median</p>
                 </div>
               </li>
             ))}
@@ -85,8 +88,8 @@ export function Insights({ window: win, scope, refreshMs }: { window: string; sc
       <Panel className="py-0">
         <div className="px-5 pt-5">
           <SectionHead
-            title="Log pattern detection"
-            hint="Messages collapsed to their template, so one failure seen 300 times is one row, not 300"
+            title="Failure patterns"
+            hint="Each message is reduced to a template by masking ids, hashes, numbers, measurements and quoted strings, then identical templates are grouped. One failure seen 300 times is one row, not 300."
           />
         </div>
         <PatternTable patterns={data.patterns} scope={scope} />
@@ -95,8 +98,8 @@ export function Insights({ window: win, scope, refreshMs }: { window: string; sc
       <Panel className="py-0">
         <div className="px-5 pt-5">
           <SectionHead
-            title="All traffic patterns"
-            hint="Including routine traffic — useful for spotting what normal actually looks like"
+            title="All patterns, including routine traffic"
+            hint="The same grouping applied to INFO as well, so the shape of normal traffic is visible for comparison."
           />
         </div>
         <PatternTable patterns={data.allPatterns} scope={scope} />

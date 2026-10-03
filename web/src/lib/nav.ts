@@ -81,12 +81,12 @@ export const NAV: { id: PageId; label: string; hint: string }[] = [
  * actually moves, while a 24-hour view re-polling every 5s is pure waste.
  */
 export const WINDOWS = [
-  { id: "1m", label: "1m", query: "minutes=1", refreshMs: 5_000, title: "Last 1 minute, refreshed every 5s" },
-  { id: "5m", label: "5m", query: "minutes=5", refreshMs: 10_000, title: "Last 5 minutes, refreshed every 10s" },
-  { id: "15m", label: "15m", query: "minutes=15", refreshMs: 20_000, title: "Last 15 minutes" },
-  { id: "1h", label: "1h", query: "hours=1", refreshMs: 30_000, title: "Last hour" },
-  { id: "6h", label: "6h", query: "hours=6", refreshMs: 60_000, title: "Last 6 hours" },
-  { id: "24h", label: "24h", query: "hours=24", refreshMs: 120_000, title: "Last 24 hours" }
+  { id: "1m", label: "1m", long: "1 minute", query: "minutes=1", refreshMs: 5_000, title: "Last 1 minute, re-polled every 5s" },
+  { id: "5m", label: "5m", long: "5 minutes", query: "minutes=5", refreshMs: 10_000, title: "Last 5 minutes, re-polled every 10s" },
+  { id: "15m", label: "15m", long: "15 minutes", query: "minutes=15", refreshMs: 20_000, title: "Last 15 minutes, re-polled every 20s" },
+  { id: "1h", label: "1h", long: "hour", query: "hours=1", refreshMs: 30_000, title: "Last hour, re-polled every 30s" },
+  { id: "6h", label: "6h", long: "6 hours", query: "hours=6", refreshMs: 60_000, title: "Last 6 hours, re-polled every 60s" },
+  { id: "24h", label: "24h", long: "24 hours", query: "hours=24", refreshMs: 120_000, title: "Last 24 hours, re-polled every 2m" }
 ];
 
 export const DEFAULT_WINDOW = WINDOWS[4];

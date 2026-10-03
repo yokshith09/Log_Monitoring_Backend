@@ -42,6 +42,14 @@ listing the same rule four times is the alert fatigue §20 warns about.
 | Cost | Daily spend, cost by service and SKU, anomalies, ranked saving actions |
 | Setup | The connected cloud project, what is monitored, and what access it needs |
 
+## Keyboard
+
+`g` then a letter navigates (`o` overview, `i` incidents, `n` insights, `s` services,
+`l` logs, `p` performance, `r` resources, `c` cost). `1`–`6` pick the time window, `r`
+refreshes, `/` focuses the log search, `t` toggles the theme, `[` collapses the rail,
+`?` lists them. Every handler stands down while focus is in a field, so typing a query
+never navigates the page out from under you.
+
 ## Incidents, not alerts
 
 A threshold rule re-evaluates continuously, so one bad afternoon produces dozens of

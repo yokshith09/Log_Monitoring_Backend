@@ -70,6 +70,7 @@ export function Incidents({ window: win, scope, refreshMs }: { window: string; s
                   expanded={open === incident.id}
                   onToggle={() => setOpen(open === incident.id ? null : incident.id)}
                   scope={scope}
+                  range={data.range}
                 />
               ))}
             </ul>
@@ -84,12 +85,14 @@ function IncidentRow({
   incident,
   expanded,
   onToggle,
-  scope
+  scope,
+  range
 }: {
   incident: Incident;
   expanded: boolean;
   onToggle: () => void;
   scope: string;
+  range: { fromMs: number; toMs: number };
 }) {
   const tone = ALERT_COLOR[incident.severity];
 
@@ -122,6 +125,7 @@ function IncidentRow({
             <p className="text-muted-foreground mt-1 text-xs">{incident.description}</p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
+            <EpisodeStrip episodes={incident.episodes} range={range} tone={tone} />
             <span className="text-muted-foreground tabular text-xs">{relative(incident.lastSeen)}</span>
             <span aria-hidden className="text-muted-foreground text-xs">
               {expanded ? "▴" : "▾"}
@@ -276,6 +280,53 @@ function IncidentRow({
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * Where the episodes landed inside the window.
+ *
+ * "4 episodes" does not distinguish a recurring blip from one long outage. The
+ * strip does, in 90px and without opening anything: four evenly-spaced marks
+ * versus one wide block are different problems with different fixes.
+ */
+function EpisodeStrip({
+  episodes,
+  range,
+  tone
+}: {
+  episodes: Incident["episodes"];
+  range: { fromMs: number; toMs: number };
+  tone: string;
+}) {
+  const span = range.toMs - range.fromMs;
+  if (!(span > 0)) return null;
+
+  return (
+    <span
+      className="bg-secondary relative hidden h-4 w-[90px] shrink-0 overflow-hidden rounded-sm sm:block"
+      title={`${episodes.length} episode${episodes.length === 1 ? "" : "s"} across this window`}
+      aria-hidden
+    >
+      {episodes.map((e) => {
+        const left = ((Math.max(e.firstSeen, range.fromMs) - range.fromMs) / span) * 100;
+        const width = ((Math.min(e.lastSeen, range.toMs) - Math.max(e.firstSeen, range.fromMs)) / span) * 100;
+        return (
+          <span
+            key={e.firstSeen}
+            className="absolute inset-y-0 rounded-[1px]"
+            style={{
+              left: `${Math.max(0, left)}%`,
+              // A 2-minute episode in a 24-hour window is 0.14% wide, which
+              // renders as nothing. Floor it at something you can see.
+              width: `${Math.max(2.5, width)}%`,
+              background: tone,
+              opacity: e.active ? 1 : 0.55
+            }}
+          />
+        );
+      })}
+    </span>
   );
 }
 

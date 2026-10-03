@@ -52,7 +52,7 @@ export function StatTile({
   const body = (
     <>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-muted-foreground text-[0.7rem] font-medium tracking-[0.08em] uppercase">{label}</p>
+        <p className="text-muted-foreground text-[0.66rem] font-medium tracking-[0.07em] uppercase">{label}</p>
         {to && (
           <span
             aria-hidden
@@ -63,15 +63,15 @@ export function StatTile({
         )}
       </div>
 
-      <div className="mt-2 flex items-end justify-between gap-3">
-        <span className="text-[2rem] leading-none font-semibold" style={{ color: toneColor }}>
+      <div className="mt-1.5 flex items-end justify-between gap-3">
+        <span className="text-[1.6rem] leading-none font-semibold tracking-tight" style={{ color: toneColor }}>
           {value}
         </span>
         {spark && spark.length > 1 && <Sparkline points={spark} tone={sparkTone} />}
       </div>
 
       {delta !== undefined && (
-        <p className="text-muted-foreground mt-2 flex items-center gap-1.5 text-xs">
+        <p className="text-muted-foreground mt-1.5 flex items-center gap-1.5 text-xs">
           <span
             aria-hidden
             style={{ color: flat ? "var(--muted-foreground)" : improving ? "var(--status-good)" : "var(--sev-error)" }}
@@ -81,14 +81,14 @@ export function StatTile({
           <span className="tabular">{deltaLabel}</span>
         </p>
       )}
-      {caption && !delta && <p className="text-muted-foreground mt-2 text-xs">{caption}</p>}
+      {caption && !delta && <p className="text-muted-foreground mt-1.5 text-xs leading-snug">{caption}</p>}
     </>
   );
 
   if (!to) {
     return (
-      <Card className="bg-card border-border/60 gap-0 py-5">
-        <CardContent className="px-5">{body}</CardContent>
+      <Card data-panel className="bg-card border-border/70 h-full gap-0 py-3.5">
+        <CardContent className="px-4">{body}</CardContent>
       </Card>
     );
   }
@@ -98,16 +98,19 @@ export function StatTile({
       href={buildHash(to, params)}
       className="group focus-visible:ring-ring rounded-xl focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:outline-none"
     >
-      <Card className="bg-card border-border/60 hover:border-border hover:bg-secondary/30 h-full gap-0 py-5 transition-colors">
-        <CardContent className="px-5">{body}</CardContent>
+      <Card
+        data-panel
+        className="bg-card border-border/70 hover:border-ring/40 hover:bg-secondary/30 h-full gap-0 py-3.5 transition-colors"
+      >
+        <CardContent className="px-4">{body}</CardContent>
       </Card>
     </a>
   );
 }
 
 function Sparkline({ points, tone = "var(--chart-1)" }: { points: number[]; tone?: string }) {
-  const w = 72;
-  const h = 28;
+  const w = 64;
+  const h = 22;
   const max = Math.max(...points, 1);
   const min = Math.min(...points);
   const span = max - min || 1;
@@ -205,11 +208,15 @@ export function SectionHead({
   to?: PageId;
   params?: Record<string, string>;
 }) {
+  // `hint` is a tooltip, never a visible subtitle. A line of prose under every
+  // panel heading triples the vertical cost of a header row and gets skipped on
+  // the second visit anyway; the reader who wants the method can hover.
   return (
-    <div className="mb-4 flex items-end justify-between gap-4">
+    <div className="mb-3 flex items-end justify-between gap-4">
       <div className="min-w-0">
-        <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
-        {hint && <p className="text-muted-foreground mt-0.5 text-xs">{hint}</p>}
+        <h2 className="text-sm font-semibold tracking-tight" title={hint}>
+          {title}
+        </h2>
       </div>
       <div className="flex shrink-0 items-center gap-3">
         {right}

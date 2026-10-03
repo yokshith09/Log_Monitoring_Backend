@@ -28,6 +28,7 @@ export function ProjectSummary({
   criticalAlertCount,
   resolvedAlertCount,
   actNowCount,
+  totalActions,
   freshness,
   scope
 }: {
@@ -38,6 +39,7 @@ export function ProjectSummary({
   criticalAlertCount: number;
   resolvedAlertCount: number;
   actNowCount: number;
+  totalActions: number;
   freshness: Freshness;
   scope: string;
 }) {
@@ -48,7 +50,7 @@ export function ProjectSummary({
     {
       label: "Overall",
       value: GRADE_LABEL[health.grade],
-      help: "Error rate, latency and availability combined",
+      help: "Errors, latency, availability",
       tone: GRADE_COLOR[health.grade]
     },
     {
@@ -61,7 +63,7 @@ export function ProjectSummary({
             : degraded > 0
               ? `${graded - degraded} of ${graded} healthy`
               : `${graded} healthy`,
-      help: "A workload counts as degraded below a “watch” grade",
+      help: "Graded below watch counts as degraded",
       tone: graded === 0 ? "var(--muted-foreground)" : degraded > 0 ? "var(--sev-warning)" : "var(--status-good)",
       to: buildHash("services", scope === "all" ? {} : { scope })
     },
@@ -77,15 +79,18 @@ export function ProjectSummary({
               : "0 firing",
       help:
         activeAlertCount === 0 && resolvedAlertCount > 0
-          ? "Nothing crossing a threshold right now; these fired earlier in the window"
+          ? "None now; these fired earlier"
           : "Rules currently crossing their threshold",
       tone: criticalAlertCount > 0 ? "var(--sev-error)" : activeAlertCount > 0 ? "var(--sev-warning)" : "var(--status-good)",
       to: buildHash("incidents", scope === "all" ? {} : { scope })
     },
     {
       label: "Fix now",
-      value: String(actNowCount),
-      help: "Actions that should not wait for the next working day",
+      value: actNowCount > 0 ? `${actNowCount} of ${totalActions}` : String(totalActions),
+      help:
+        actNowCount > 0
+          ? "Cannot wait for tomorrow"
+          : "Open actions, none urgent",
       tone: actNowCount > 0 ? "var(--sev-error)" : "var(--status-good)"
     }
   ];

@@ -71,9 +71,10 @@ export function Logs({ window: win, params, refreshMs }: { window: string; param
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2.5">
           <Input
+            data-search
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search event, message, route or request id…"
+            placeholder="Search event, message, route or request id…  ( / )"
             className="bg-card border-border/60 h-9 max-w-xs"
           />
           {dropdowns.map((d) => (

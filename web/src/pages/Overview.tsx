@@ -1,4 +1,4 @@
-import { Explain, Figure, Section } from "@/components/layout";
+import { Figure, Section } from "@/components/layout";
 import { GRADE_COLOR, GRADE_LABEL, Legend, Panel, SeverityBadge, StatTile } from "@/components/primitives";
 import { RankedBars, SeverityStack } from "@/components/charts";
 import { useApi } from "@/lib/api";
@@ -22,9 +22,11 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
   const sparse = health.grade === "sparse" || health.grade === "nodata";
 
   return (
-    <div className="space-y-10">
-      {/* --------------------------------------------------------- SUMMARY --
-          Who, how much, how healthy — before anything that needs reading. */}
+    <div className="space-y-7">
+      {/* --------------------------------------------------------- STATUS --
+          The band and the action queue are one unit: who, how healthy, and what
+          to do. Tight spacing inside, room after. */}
+      <div className="space-y-2">
       <ProjectSummary
         connection={byConnection[0]}
         health={health}
@@ -33,6 +35,7 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
         criticalAlertCount={alerts.filter((a) => a.active && a.severity === "critical").length}
         resolvedAlertCount={alerts.filter((a) => !a.active).length}
         actNowCount={actionCounts.critical}
+        totalActions={actionCounts.total}
         freshness={freshness}
         scope={scope}
       />
@@ -41,6 +44,7 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
           First on the page, before any chart. A reader who only looks at the
           top of this dashboard should still learn what needs doing. */}
       <ActionQueue actions={actions} counts={actionCounts} sparse={sparse} />
+      </div>
 
       {/* ---------------------------------------------------------- HEALTH */}
       <Section
@@ -87,7 +91,7 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
         eyebrow="Key numbers"
         title="At a glance"
       >
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid auto-rows-fr gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <StatTile
             label="Requests"
             value={fmtNum(health.requests)}
@@ -140,7 +144,7 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
         title="What is failing"
         right={<SummaryChip summary={summaries.reliability} />}
       >
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid auto-rows-fr gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <StatTile
             label="Server errors (5xx)"
             value={fmtNum(health.serverErrors)}
@@ -173,12 +177,13 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
           />
         </div>
 
-        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        <div className="mt-2 grid gap-2 lg:grid-cols-3">
           <Panel className="lg:col-span-2">
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <div>
-                <h3 className="text-sm font-semibold">Volume over time, by severity</h3>
-                <Explain>Stacked, so the error share reads against total traffic rather than in isolation.</Explain>
+                <h3 className="text-sm font-semibold" title="Stacked, so the error share reads against total traffic rather than in isolation.">
+                  Volume over time, by severity
+                </h3>
               </div>
               <Legend
                 items={(["INFO", "WARNING", "ERROR"] as const).map((s) => ({ label: s, color: SEVERITY_COLOR[s] }))}
@@ -188,9 +193,10 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
           </Panel>
 
           <Panel>
-            <h3 className="mb-1 text-sm font-semibold">Severity split</h3>
-            <Explain>INFO is routine traffic. Click any row to read those entries.</Explain>
-            <ul className="mt-4 space-y-3.5">
+            <h3 className="mb-1 text-sm font-semibold" title="INFO is routine traffic. Click any row to read those entries.">
+              Severity split
+            </h3>
+            <ul className="mt-3 space-y-3">
               {severity.map((row: any) => {
                 const share = health.requests === 0 ? 0 : row.count / health.requests;
                 return (
@@ -256,11 +262,12 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
         eyebrow="Detail"
         title="Failures and slow paths"
       >
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid gap-2 lg:grid-cols-2">
           <Panel>
-            <h3 className="mb-1 text-sm font-semibold">Most frequent failures</h3>
-            <Explain>Warnings and errors grouped by event name. Click one to read just those entries.</Explain>
-            <ul className="mt-4 space-y-2.5">
+            <h3 className="mb-1 text-sm font-semibold" title="Warnings and errors grouped by event name. Click one to read just those entries.">
+              Most frequent failures
+            </h3>
+            <ul className="mt-3 space-y-2.5">
               {topEvents.map((row: any) => {
                 const max = Math.max(...topEvents.map((e: any) => e.count), 1);
                 return (
@@ -287,9 +294,10 @@ export function Overview({ window: win, scope, refreshMs }: { window: string; sc
           </Panel>
 
           <Panel>
-            <h3 className="mb-1 text-sm font-semibold">Slowest endpoints</h3>
-            <Explain>Ranked by p95. Amber marks anything past the 500ms alert threshold.</Explain>
-            <div className="mt-4">
+            <h3 className="mb-1 text-sm font-semibold" title="Ranked by p95. Amber marks anything past the 500ms alert threshold.">
+              Slowest endpoints
+            </h3>
+            <div className="mt-3">
               <RankedBars
                 data={performance}
                 labelKey="route"
@@ -378,7 +386,7 @@ export function PageSkeleton() {
   return (
     <div className="space-y-6">
       <div className="bg-card/60 h-36 animate-pulse rounded-xl" />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid auto-rows-fr gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="bg-card/60 h-28 animate-pulse rounded-xl" />
         ))}

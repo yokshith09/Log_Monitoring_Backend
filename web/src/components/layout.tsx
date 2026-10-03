@@ -30,13 +30,13 @@ export function Section({
 }) {
   return (
     <section className={cn("scroll-mt-24", className)}>
-      <header className="border-border/70 mb-4 flex flex-wrap items-end justify-between gap-3 border-b pb-3">
+      {/* Same rule as SectionHead: `description` is a tooltip, not a subtitle. */}
+      <header className="border-border/70 mb-3 flex flex-wrap items-end justify-between gap-3 border-b pb-2.5">
         <div className="min-w-0">
-          {eyebrow && <p className="eyebrow mb-1">{eyebrow}</p>}
-          <h2 className="text-base leading-tight font-semibold tracking-tight">{title}</h2>
-          {description && (
-            <p className="text-muted-foreground mt-1 max-w-2xl text-sm leading-relaxed">{description}</p>
-          )}
+          {eyebrow && <p className="eyebrow mb-0.5">{eyebrow}</p>}
+          <h2 className="text-base leading-tight font-semibold tracking-tight" title={description}>
+            {title}
+          </h2>
         </div>
         {right && <div className="flex shrink-0 items-center gap-2">{right}</div>}
       </header>
